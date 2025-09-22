@@ -1,23 +1,32 @@
 import os
-import os
-# Configurazione
-VERIFIED_ROLE_ID = int(os.getenv('VERIFIED_ROLE_ID'))
-UNVERIFIED_ROLE_ID = int(os.getenv('UNVERIFIED_ROLE_ID'))
-PARTNERSHIP_CHANNEL_ID = int(os.getenv('PARTNERSHIP_CHANNEL_ID'))
-INVITE_ROLES = {
-    1: int(os.getenv('INVITE_ROLE_1_ID')),
-    3: int(os.getenv('INVITE_ROLE_3_ID')),
-    5: int(os.getenv('INVITE_ROLE_5_ID')),
-    10: int(os.getenv('INVITE_ROLE_10_ID')),
-    50: int(os.getenv('INVITE_ROLE_50_ID')),
-    100: int(os.getenv('INVITE_ROLE_100_ID'))
-}
-import discord # type: ignore
-from discord.ext import commands # type: ignore
-from dotenv import load_dotenv # type: ignore
-import aiosqlite # type: ignore
+import discord
+from discord.ext import commands
+from dotenv import load_dotenv
+import aiosqlite
 
 load_dotenv()
+
+# Configurazione con valori di default
+def get_env_var(name, default=None):
+    value = os.getenv(name)
+    if value is None:
+        print(f"⚠️ Variabile {name} non trovata, uso default: {default}")
+        return default
+    return value
+
+# Usa valori di default se le variabili non esistono
+VERIFIED_ROLE_ID = int(get_env_var('VERIFIED_ROLE_ID', 1392128530438951084))
+UNVERIFIED_ROLE_ID = int(get_env_var('UNVERIFIED_ROLE_ID', 1392111556954685450))
+PARTNERSHIP_CHANNEL_ID = int(get_env_var('PARTNERSHIP_CHANNEL_ID', 1411451850485403830))
+
+INVITE_ROLES = {
+    1: int(get_env_var('INVITE_ROLE_1_ID', 1392731553221578843)),
+    3: int(get_env_var('INVITE_ROLE_3_ID', 1392731553624363058)),
+    5: int(get_env_var('INVITE_ROLE_5_ID', 1392731554362425445)),
+    10: int(get_env_var('INVITE_ROLE_10_ID', 1392731555188969613)),
+    50: int(get_env_var('INVITE_ROLE_50_ID', 1392731615632818286)),
+    100: int(get_env_var('INVITE_ROLE_100_ID', 1392731616060772424))
+}
 
 class MyBot(commands.Bot):
     def __init__(self):
@@ -25,61 +34,92 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix='/', intents=intents, help_command=None)
     
     async def setup_hook(self):
-        # Carica tutti i cog
-        for filename in os.listdir('./cogs'):
-            if filename.endswith('.py'):
-                await self.load_extension(f'cogs.{filename[:-3]}')
+        # DEBUG: mostra struttura file
+        print("=== STRUTTURA FILE ===")
+        try:
+            items = os.listdir('.')
+            for item in items:
+                print(f"📁 {item}")
+                
+                # Se è una cartella, mostra contenuto
+                if os.path.isdir(item):
+                    try:
+                        subitems = os.listdir(item)
+                        for subitem in subitems:
+                            print(f"  📄 {subitem}")
+                    except Exception as e:
+                        print(f"  ❌ Errore leggendo {item}: {e}")
+        except Exception as e:
+            print(f"❌ Errore lista file: {e}")
+        
+        # Carica tutti i cog con gestione errori
+        cogs_path = './cogs'
+        if os.path.exists(cogs_path):
+            print("✅ Cartella cogs trovata!")
+            for filename in os.listdir(cogs_path):
+                if filename.endswith('.py') and filename != '__init__.py':
+                    try:
+                        await self.load_extension(f'cogs.{filename[:-3]}')
+                        print(f"✅ Caricato: {filename}")
+                    except Exception as e:
+                        print(f"❌ Errore caricamento {filename}: {e}")
+        else:
+            print("❌ Cartella cogs non trovata!")
+            # Prova a caricare i cog manualmente
+            cog_names = ['fun', 'verification', 'partnership', 'moderation', 'leveling', 'invite_tracker']
+            for cog_name in cog_names:
+                try:
+                    await self.load_extension(cog_name)
+                    print(f"✅ Caricato: {cog_name}")
+                except Exception as e:
+                    print(f"❌ Errore {cog_name}: {e}")
         
         # Inizializza il database
         await self.init_db()
         
         # Sincronizza i comandi slash
-        await self.tree.sync()
-        print("Comandi slash sincronizzati!")
-    
+        try:
+            await self.tree.sync()
+            print("✅ Comandi slash sincronizzati!")
+        except Exception as e:
+            print(f"❌ Errore sincronizzazione: {e}")
+
     async def init_db(self):
-        async with aiosqlite.connect('database.db') as db:
-            # Tabella per i livelli
-            await db.execute('''
-                CREATE TABLE IF NOT EXISTS levels (
-                    user_id INTEGER PRIMARY KEY,
-                    guild_id INTEGER,
-                    xp INTEGER DEFAULT 0,
-                    level INTEGER DEFAULT 1
-                )
-            ''')
-            
-            # Tabella per gli inviti
-            await db.execute('''
-                CREATE TABLE IF NOT EXISTS invites (
-                    user_id INTEGER,
-                    guild_id INTEGER,
-                    invites_count INTEGER DEFAULT 0,
-                    PRIMARY KEY (user_id, guild_id)
-                )
-            ''')
-            
-            await db.commit()
+        try:
+            async with aiosqlite.connect('database.db') as db:
+                await db.execute('''
+                    CREATE TABLE IF NOT EXISTS levels (
+                        user_id INTEGER PRIMARY KEY,
+                        guild_id INTEGER,
+                        xp INTEGER DEFAULT 0,
+                        level INTEGER DEFAULT 1
+                    )
+                ''')
+                await db.execute('''
+                    CREATE TABLE IF NOT EXISTS invites (
+                        user_id INTEGER,
+                        guild_id INTEGER,
+                        invites_count INTEGER DEFAULT 0,
+                        PRIMARY KEY (user_id, guild_id)
+                    )
+                ''')
+                await db.commit()
+            print("✅ Database inizializzato!")
+        except Exception as e:
+            print(f"❌ Errore database: {e}")
 
 bot = MyBot()
 
 @bot.event
 async def on_ready():
-    print(f'{bot.user} è online!')
+    print(f'✅ {bot.user} è online!')
+    print(f'✅ ID Bot: {bot.user.id}')
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="/help"))
 
-@bot.tree.command(name="help", description="Mostra tutti i comandi disponibili")
-async def help_command(interaction: discord.Interaction):
-    embed = discord.Embed(title="Comandi del Bot", color=0x00ff00)
-    
-    embed.add_field(name="🎯 **Verifica**", value="`/verify` - Sistema di verifica", inline=False)
-    embed.add_field(name="🤝 **Partnership**", value="`/partnership` - Crea una partnership", inline=False)
-    embed.add_field(name="⚡ **Moderazione**", value="`/ban`, `/kick`, `/timeout`, `/clear`", inline=False)
-    embed.add_field(name="🎮 **Divertimento**", value="`/meme`, `/quote`, `/8ball`, `/cat`", inline=False)
-    embed.add_field(name="📊 **Livelli**", value="`/level`, `/leaderboard`", inline=False)
-    embed.add_field(name="📨 **Inviti**", value="`/invites` - Controlla i tuoi inviti", inline=False)
-    
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
 if __name__ == "__main__":
-    bot.run(os.getenv('DISCORD_TOKEN'))
+    token = os.getenv('DISCORD_TOKEN')
+    if token:
+        print("✅ Token Discord trovato, avvio bot...")
+        bot.run(token)
+    else:
+        print("❌ Token Discord non trovato!")
