@@ -3,25 +3,6 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 import aiosqlite
-async def setup_hook(self):
-    # DEBUG: mostra struttura file
-    print("=== STRUTTURA FILE ===")
-    try:
-        items = os.listdir('.')
-        for item in items:
-            print(f"📁 {item}")
-    except Exception as e:
-        print(f"❌ Errore lista file: {e}")
-    
-    # Carica i cog con gestione errori
-    cog_files = ['verification', 'partnership', 'moderation', 'fun', 'leveling', 'invite_tracker']
-    
-    for cog_name in cog_files:
-        try:
-            await self.load_extension(f'Cogs.{cog_name}')
-            print(f"✅ Caricato: {cog_name}")
-        except Exception as e:
-            print(f"❌ Errore {cog_name}: {e}")
 
 load_dotenv()
 
@@ -50,6 +31,7 @@ INVITE_ROLES = {
 class MyBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.all()
+        intents.message_content = True  # Aggiungi questa linea
         super().__init__(command_prefix='/', intents=intents, help_command=None)
     
     async def setup_hook(self):
@@ -71,19 +53,27 @@ class MyBot(commands.Bot):
         except Exception as e:
             print(f"❌ Errore lista file: {e}")
         
-        # Carica tutti i cog con gestione errori
-        cogs_path = './cogs'
-        if os.path.exists(cogs_path):
-            print("✅ Cartella cogs trovata!")
-            for filename in os.listdir(cogs_path):
-                if filename.endswith('.py') and filename != '__init__.py':
-                    try:
-                        await self.load_extension(f'cogs.{filename[:-3]}')
-                        print(f"✅ Caricato: {filename}")
-                    except Exception as e:
-                        print(f"❌ Errore caricamento {filename}: {e}")
-        else:
-            print("❌ Cartella cogs non trovata!")
+        # Prova entrambi i nomi della cartella (Cogs/cogs)
+        cogs_paths = ['./Cogs', './cogs']  # Prova entrambi i nomi
+        cogs_loaded = False
+        
+        for cogs_path in cogs_paths:
+            if os.path.exists(cogs_path):
+                print(f"✅ Cartella {cogs_path} trovata!")
+                for filename in os.listdir(cogs_path):
+                    if filename.endswith('.py') and filename != '__init__.py':
+                        try:
+                            # Usa il nome corretto della cartella nell'import
+                            cog_name = f"{cogs_path[2:]}.{filename[:-3]}"
+                            await self.load_extension(cog_name)
+                            print(f"✅ Caricato: {cog_name}")
+                            cogs_loaded = True
+                        except Exception as e:
+                            print(f"❌ Errore caricamento {filename}: {e}")
+                break
+        
+        if not cogs_loaded:
+            print("❌ Nessun cog caricato! Provo a caricare manualmente...")
             # Prova a caricare i cog manualmente
             cog_names = ['fun', 'verification', 'partnership', 'moderation', 'leveling', 'invite_tracker']
             for cog_name in cog_names:
@@ -96,10 +86,14 @@ class MyBot(commands.Bot):
         # Inizializza il database
         await self.init_db()
         
-        # Sincronizza i comandi slash
+        # Sincronizza i comandi slash CON FORCE
         try:
-            await self.tree.sync()
-            print("✅ Comandi slash sincronizzati!")
+            synced = await self.tree.sync()
+            print(f"✅ Sincronizzati {len(synced)} comandi slash!")
+            
+            # Mostra la lista dei comandi sincronizzati
+            for cmd in synced:
+                print(f"   - /{cmd.name}")
         except Exception as e:
             print(f"❌ Errore sincronizzazione: {e}")
 
@@ -133,7 +127,37 @@ bot = MyBot()
 async def on_ready():
     print(f'✅ {bot.user} è online!')
     print(f'✅ ID Bot: {bot.user.id}')
+    
+    # Conta i comandi registrati
+    commands_count = len(bot.tree.get_commands())
+    print(f'✅ Comandi registrati nel bot: {commands_count}')
+    
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="/help"))
+
+# Comando per risincronizzare manualmente
+@bot.tree.command(name="sync", description="Risincronizza i comandi (solo admin)")
+async def sync(interaction: discord.Interaction):
+    if interaction.user.guild_permissions.administrator:
+        try:
+            synced = await bot.tree.sync()
+            await interaction.response.send_message(f"✅ Sincronizzati {len(synced)} comandi!", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Errore: {e}", ephemeral=True)
+    else:
+        await interaction.response.send_message("❌ Non hai i permessi per questo comando!", ephemeral=True)
+
+@bot.tree.command(name="help", description="Mostra tutti i comandi disponibili")
+async def help_command(interaction: discord.Interaction):
+    # Ottieni la lista dei comandi
+    commands_list = []
+    for command in bot.tree.get_commands():
+        commands_list.append(f"**/{command.name}** - {command.description}")
+    
+    embed = discord.Embed(title="🤖 Comandi di EVL's Bot", color=0x00ff00)
+    embed.description = "\n".join(commands_list) if commands_list else "Nessun comando caricato 😢\nUsa `/sync` per aggiornare i comandi (solo admin)"
+    embed.set_footer(text="EVL's Community Bot")
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 if __name__ == "__main__":
     token = os.getenv('DISCORD_TOKEN')
@@ -142,4 +166,3 @@ if __name__ == "__main__":
         bot.run(token)
     else:
         print("❌ Token Discord non trovato!")
-
