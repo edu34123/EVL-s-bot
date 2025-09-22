@@ -3,6 +3,25 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 import aiosqlite
+async def setup_hook(self):
+    # DEBUG: mostra struttura file
+    print("=== STRUTTURA FILE ===")
+    try:
+        items = os.listdir('.')
+        for item in items:
+            print(f"📁 {item}")
+    except Exception as e:
+        print(f"❌ Errore lista file: {e}")
+    
+    # Carica i cog con gestione errori
+    cog_files = ['verification', 'partnership', 'moderation', 'fun', 'leveling', 'invite_tracker']
+    
+    for cog_name in cog_files:
+        try:
+            await self.load_extension(f'Cogs.{cog_name}')
+            print(f"✅ Caricato: {cog_name}")
+        except Exception as e:
+            print(f"❌ Errore {cog_name}: {e}")
 
 load_dotenv()
 
@@ -123,3 +142,4 @@ if __name__ == "__main__":
         bot.run(token)
     else:
         print("❌ Token Discord non trovato!")
+
