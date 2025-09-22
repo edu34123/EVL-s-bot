@@ -1,7 +1,6 @@
-import discord # type: ignore
-from discord import app_commands # type: ignore
-from discord.ext import commands # type: ignore
-from config import PARTNERSHIP_CHANNEL_ID  # Importa dalla config # type: ignore
+import discord
+from discord import app_commands
+from discord.ext import commands
 
 class Partnership(commands.Cog):
     def __init__(self, bot):
@@ -14,6 +13,8 @@ class Partnership(commands.Cog):
         invite_link="Link d'invito"
     )
     async def partnership(self, interaction: discord.Interaction, server_name: str, description: str, invite_link: str):
+        from main import PARTNERSHIP_CHANNEL_ID
+        
         if not interaction.user.guild_permissions.manage_guild:
             await interaction.response.send_message("Non hai i permessi necessari!", ephemeral=True)
             return
@@ -26,7 +27,7 @@ class Partnership(commands.Cog):
         embed.add_field(name="🔗 Link", value=invite_link, inline=False)
         embed.set_footer(text=f"Partnership creata da {interaction.user}")
         
-        channel = self.bot.get_channel(PARTNERSHIP_CHANNEL_ID)  # Usa la costante
+        channel = self.bot.get_channel(PARTNERSHIP_CHANNEL_ID)
         if channel:
             await channel.send(embed=embed)
             await interaction.response.send_message("Partnership creata con successo!", ephemeral=True)
