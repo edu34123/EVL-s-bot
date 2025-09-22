@@ -1,7 +1,6 @@
-import discord # type: ignore
-from discord import app_commands # type: ignore
-from discord.ext import commands #  type: ignore
-from config import VERIFIED_ROLE_ID, UNVERIFIED_ROLE_ID  # Importa dalla config # type: ignore
+import discord
+from discord import app_commands
+from discord.ext import commands
 
 class Verification(commands.Cog):
     def __init__(self, bot):
@@ -24,8 +23,10 @@ class VerifyView(discord.ui.View):
     
     @discord.ui.button(label="Verificati", style=discord.ButtonStyle.success, custom_id="verify_button")
     async def verify_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        verified_role = interaction.guild.get_role(VERIFIED_ROLE_ID)  # Usa la costante
-        unverified_role = interaction.guild.get_role(UNVERIFIED_ROLE_ID)  # Usa la costante
+        from main import VERIFIED_ROLE_ID, UNVERIFIED_ROLE_ID
+        
+        verified_role = interaction.guild.get_role(VERIFIED_ROLE_ID)
+        unverified_role = interaction.guild.get_role(UNVERIFIED_ROLE_ID)
         
         if verified_role and unverified_role:
             if unverified_role in interaction.user.roles:
