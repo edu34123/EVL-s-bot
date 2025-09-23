@@ -1,10 +1,6 @@
 #!/bin/bash
-
-# Avvia il server health check in background
-python health_server.py &
-
-# Aspetta che il server si avvii
-sleep 5
-
-# Avvia il bot Discord principale
+# Avvia server web
+python server.py &
+# Aspetta e avvia bot
+sleep 10
 python main.py
