@@ -16,6 +16,26 @@ class Klubs(commands.Cog):
         print(f"   - Ruoli autorizzati: {self.ALLOWED_ROLE_IDS}")
         print(f"   - Canale klubs: {self.KLUBS_CHANNEL_ID}")
 
+    async def delete_after_delay(self, *messages, delay=3):
+        """Elimina i messaggi dopo un delay"""
+        await asyncio.sleep(delay)
+        for message in messages:
+            try:
+                await message.delete()
+            except:
+                pass  # Ignora errori se il messaggio è già stato eliminato
+
+    async def send_and_delete(self, ctx, content=None, embed=None, delay=3):
+        """Invia un messaggio e lo elimina dopo il delay"""
+        if embed:
+            bot_msg = await ctx.send(embed=embed)
+        else:
+            bot_msg = await ctx.send(content)
+        
+        # Elimina sia il messaggio del comando che la risposta del bot
+        asyncio.create_task(self.delete_after_delay(ctx.message, bot_msg, delay=delay))
+        return bot_msg
+
     async def get_klubs_category(self, guild):
         """Crea o ottiene la categoria per i klub"""
         # Cerca una categoria esistente chiamata "Klubs"
@@ -49,10 +69,11 @@ class Klubs(commands.Cog):
             channel = guild.get_channel(self.KLUBS_CHANNEL_ID)
             if channel:
                 try:
-                    # Pulisci i vecchi messaggi del bot
-                    async for message in channel.history(limit=10):
-                        if message.author == self.bot.user:
+                    # Pulisci i vecchi messaggi del bot (solo quelli di sistema)
+                    async for message in channel.history(limit=20):
+                        if message.author == self.bot.user and any(word in message.content.lower() for word in ['klub', 'privati', 'sistema']):
                             await message.delete()
+                            await asyncio.sleep(0.5)
                     
                     await asyncio.sleep(1)
                     await self.send_klubs_message(channel)
@@ -139,12 +160,6 @@ class Klubs(commands.Cog):
         
         await channel.send(embed=embed, view=view)
 
-    def has_allowed_role(self):
-        async def predicate(ctx):
-            user_roles = [role.id for role in ctx.author.roles]
-            return any(role_id in user_roles for role_id in self.ALLOWED_ROLE_IDS)
-        return commands.check(predicate)
-
     @commands.command(name='klub_setup')
     @commands.has_permissions(administrator=True)
     async def klub_setup(self, ctx, channel: discord.TextChannel = None):
@@ -153,12 +168,15 @@ class Klubs(commands.Cog):
             channel = ctx.channel
         
         self.KLUBS_CHANNEL_ID = channel.id
-        await ctx.send(f"✅ Canale klubs impostato su {channel.mention}")
-        await self.setup_klubs_channel()
+        await self.send_and_delete(ctx, content=f"✅ Canale klubs impostato su {channel.mention}", delay=5)
 
     @commands.command(name='klub')
     async def klub_command(self, ctx, action: str = None, *, args: str = None):
         """Gestisci i tuoi Klubs"""
+        # Converti action in lowercase per evitare problemi di case sensitivity
+        if action:
+            action = action.lower()
+        
         if action is None:
             embed = discord.Embed(
                 title="🎯 Comandi Klubs",
@@ -177,12 +195,10 @@ class Klubs(commands.Cog):
                 ),
                 inline=False
             )
-            await ctx.send(embed=embed)
+            await self.send_and_delete(ctx, embed=embed)
             return
 
         # Gestisci le diverse azioni
-        action = action.lower()
-        
         if action == "create":
             await self.klub_create(ctx, args)
         elif action == "edit":
@@ -196,84 +212,85 @@ class Klubs(commands.Cog):
         elif action == "delete":
             await self.klub_delete(ctx)
         else:
-            await ctx.send("❌ Azione non riconosciuta! Usa `>klub` per vedere i comandi disponibili.")
-
-    @klub_command.error
-    async def klub_command_error(self, ctx, error):
-        if isinstance(error, commands.CheckFailure):
-            await ctx.send("❌ Non hai i permessi per usare questo comando!")
+            await self.send_and_delete(ctx, content="❌ Azione non riconosciuta! Usa `>klub` per vedere i comandi disponibili.")
 
     async def klub_create(self, ctx, name):
         """Crea un nuovo klub"""
         if not name:
-            await ctx.send("❌ Devi specificare un nome! Es: `>klub create NomeKlub`")
+            await self.send_and_delete(ctx, content="❌ Devi specificare un nome! Es: `>klub create NomeKlub`")
             return
         
         # Verifica permessi
         user_roles = [role.id for role in ctx.author.roles]
         if not any(role_id in user_roles for role_id in self.ALLOWED_ROLE_IDS):
-            await ctx.send("❌ Non hai i permessi per creare un Klub!")
+            await self.send_and_delete(ctx, content="❌ Non hai i permessi per creare un Klub!")
             return
         
         if ctx.author.id in self.klubs:
-            await ctx.send("❌ Hai già un klub attivo! Eliminalo prima di crearne uno nuovo.")
+            await self.send_and_delete(ctx, content="❌ Hai già un klub attivo! Eliminalo prima di crearne uno nuovo.")
             return
         
         guild = ctx.guild
         category = await self.get_klubs_category(guild)
         
-        # Crea canale vocale
-        voice_channel = await guild.create_voice_channel(
-            name=f"🔒 {name}",
-            category=category,
-            user_limit=10
-        )
-        
-        # Crea canale testuale privato
-        overwrites = {
-            guild.default_role: discord.PermissionOverwrite(view_channel=False),
-            ctx.author: discord.PermissionOverwrite(
-                view_channel=True, 
-                connect=True, 
-                speak=True,
-                send_messages=True
-            ),
-            self.bot.user: discord.PermissionOverwrite(
-                view_channel=True, 
-                manage_channels=True
+        try:
+            # Crea canale vocale
+            voice_channel = await guild.create_voice_channel(
+                name=f"🔒 {name}",
+                category=category,
+                user_limit=10
             )
-        }
-        
-        text_channel = await guild.create_text_channel(
-            name=f"klub-{name.lower().replace(' ', '-')}",
-            category=category,
-            overwrites=overwrites
-        )
-        
-        # Salva il klub
-        self.klubs[ctx.author.id] = self.Klub(
-            ctx.author, voice_channel, text_channel, name
-        )
-        
-        embed = discord.Embed(
-            title="🎉 Klub Creato!",
-            description=f"**{name}** è stato creato con successo!",
-            color=0x00ff00
-        )
-        embed.add_field(name="Canale Vocale", value=voice_channel.mention)
-        embed.add_field(name="Canale Testuale", value=text_channel.mention)
-        embed.add_field(
-            name="Comandi", 
-            value="Usa `>klub` per gestire il tuo klub", 
-            inline=False
-        )
-        
-        await ctx.send(embed=embed)
+            
+            # Crea canale testuale privato
+            overwrites = {
+                guild.default_role: discord.PermissionOverwrite(view_channel=False),
+                ctx.author: discord.PermissionOverwrite(
+                    view_channel=True, 
+                    connect=True, 
+                    speak=True,
+                    send_messages=True
+                ),
+                self.bot.user: discord.PermissionOverwrite(
+                    view_channel=True, 
+                    manage_channels=True
+                )
+            }
+            
+            text_channel = await guild.create_text_channel(
+                name=f"klub-{name.lower().replace(' ', '-')}",
+                category=category,
+                overwrites=overwrites
+            )
+            
+            # Salva il klub
+            self.klubs[ctx.author.id] = self.Klub(
+                ctx.author, voice_channel, text_channel, name
+            )
+            
+            embed = discord.Embed(
+                title="🎉 Klub Creato!",
+                description=f"**{name}** è stato creato con successo!",
+                color=0x00ff00
+            )
+            embed.add_field(name="Canale Vocale", value=voice_channel.mention)
+            embed.add_field(name="Canale Testuale", value=text_channel.mention)
+            embed.add_field(
+                name="Comandi", 
+                value="Usa `>klub` per gestire il tuo klub", 
+                inline=False
+            )
+            
+            # Per la creazione, non eliminare il messaggio subito
+            bot_msg = await ctx.send(embed=embed)
+            asyncio.create_task(self.delete_after_delay(ctx.message, bot_msg, delay=10))
+            
+        except Exception as e:
+            await self.send_and_delete(ctx, content=f"❌ Errore nella creazione del klub: {e}")
 
     async def klub_lock(self, ctx):
         """Blocca l'accesso al klub"""
         if ctx.author.id not in self.klubs:
-            await ctx.send("❌ Non hai un klub attivo!")
+            await self.send_and_delete(ctx, content="❌ Non hai un klub attivo!")
             return
         
         klub = self.klubs[ctx.author.id]
@@ -287,12 +304,12 @@ class Klubs(commands.Cog):
             overwrites[trusted_user] = discord.PermissionOverwrite(connect=True)
         
         await klub.voice_channel.edit(overwrites=overwrites)
-        await ctx.send("🔒 Klub bloccato! Solo gli utenti trusted possono entrare.")
+        await self.send_and_delete(ctx, content="🔒 Klub bloccato! Solo gli utenti trusted possono entrare.")
 
     async def klub_unlock(self, ctx):
         """Sblocca l'accesso al klub"""
         if ctx.author.id not in self.klubs:
-            await ctx.send("❌ Non hai un klub attivo!")
+            await self.send_and_delete(ctx, content="❌ Non hai un klub attivo!")
             return
         
         klub = self.klubs[ctx.author.id]
@@ -303,16 +320,16 @@ class Klubs(commands.Cog):
         overwrites[ctx.guild.default_role] = discord.PermissionOverwrite(connect=True)
         
         await klub.voice_channel.edit(overwrites=overwrites)
-        await ctx.send("🔓 Klub sbloccato! Tutti possono entrare.")
+        await self.send_and_delete(ctx, content="🔓 Klub sbloccato! Tutti possono entrare.")
 
     async def klub_trust(self, ctx, user_mention):
         """Aggiungi un utente trusted"""
         if ctx.author.id not in self.klubs:
-            await ctx.send("❌ Non hai un klub attivo!")
+            await self.send_and_delete(ctx, content="❌ Non hai un klub attivo!")
             return
         
         if not user_mention:
-            await ctx.send("❌ Devi specificare un utente! Es: `>klub trust @utente`")
+            await self.send_and_delete(ctx, content="❌ Devi specificare un utente! Es: `>klub trust @utente`")
             return
         
         # Estrai l'ID utente dalla menzione
@@ -321,10 +338,10 @@ class Klubs(commands.Cog):
             user = ctx.guild.get_member(user_id)
             
             if not user:
-                await ctx.send("❌ Utente non trovato!")
+                await self.send_and_delete(ctx, content="❌ Utente non trovato!")
                 return
         except:
-            await ctx.send("❌ Formato non valido! Usa: `>klub trust @utente`")
+            await self.send_and_delete(ctx, content="❌ Formato non valido! Usa: `>klub trust @utente`")
             return
         
         klub = self.klubs[ctx.author.id]
@@ -342,12 +359,12 @@ class Klubs(commands.Cog):
         
         await klub.voice_channel.edit(overwrites=overwrites)
         await klub.text_channel.edit(overwrites=text_overwrites)
-        await ctx.send(f"✅ {user.mention} è ora un utente trusted!")
+        await self.send_and_delete(ctx, content=f"✅ {user.mention} è ora un utente trusted!")
 
     async def klub_delete(self, ctx):
         """Elimina il klub"""
         if ctx.author.id not in self.klubs:
-            await ctx.send("❌ Non hai un klub attivo!")
+            await self.send_and_delete(ctx, content="❌ Non hai un klub attivo!")
             return
         
         klub = self.klubs[ctx.author.id]
@@ -363,16 +380,16 @@ class Klubs(commands.Cog):
         if ctx.author.id in self.klubs:
             del self.klubs[ctx.author.id]
         
-        await ctx.send("🗑️ Klub eliminato con successo!")
+        await self.send_and_delete(ctx, content="🗑️ Klub eliminato con successo!")
 
     async def klub_edit(self, ctx, new_name):
         """Modifica il nome del klub"""
         if ctx.author.id not in self.klubs:
-            await ctx.send("❌ Non hai un klub attivo!")
+            await self.send_and_delete(ctx, content="❌ Non hai un klub attivo!")
             return
         
         if not new_name:
-            await ctx.send("❌ Devi specificare un nuovo nome! Es: `>klub edit NuovoNome`")
+            await self.send_and_delete(ctx, content="❌ Devi specificare un nuovo nome! Es: `>klub edit NuovoNome`")
             return
         
         klub = self.klubs[ctx.author.id]
@@ -383,7 +400,7 @@ class Klubs(commands.Cog):
         await klub.voice_channel.edit(name=f"🔒 {new_name}")
         await klub.text_channel.edit(name=f"klub-{new_name.lower().replace(' ', '-')}")
         
-        await ctx.send(f"✏️ Nome del klub cambiato da **{old_name}** a **{new_name}**")
+        await self.send_and_delete(ctx, content=f"✏️ Nome del klub cambiato da **{old_name}** a **{new_name}**")
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
