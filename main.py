@@ -134,7 +134,7 @@ async def on_ready():
     commands_count = len(bot.tree.get_commands())
     print(f'✅ Comandi registrati nel bot: {commands_count}')
     
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="/help"))
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="My Community and helping you with /help 👀"))
 
 # Comando per risincronizzare manualmente
 @bot.tree.command(name="sync", description="Risincronizza i comandi (solo admin)")
@@ -168,6 +168,7 @@ if __name__ == "__main__":
         bot.run(token)
     else:
         print("❌ Token Discord non trovato!")
+
 
 
 
