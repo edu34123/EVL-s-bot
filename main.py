@@ -34,7 +34,8 @@ class MyBot(commands.Bot):
         intents = discord.Intents.all()
         intents.message_content = True
         # Il bot risponderà a >, / e quando viene menzionato
-        super().__init__(command_prefix=commands.when_mentioned_or('>', '/'), intents=intents, help_command=None)
+        # Nel metodo __init__ della classe MyBot:
+super().__init__(command_prefix='>', intents=intents, help_command=None)
     
     async def setup_hook(self):
         # DEBUG: mostra struttura file
@@ -168,6 +169,7 @@ if __name__ == "__main__":
         bot.run(token)
     else:
         print("❌ Token Discord non trovato!")
+
 
 
 
