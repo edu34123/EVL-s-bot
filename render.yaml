@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: evl-bot
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash start.sh
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: VERIFIED_ROLE_ID
+        value: 1392128530438951084
+      - key: UNVERIFIED_ROLE_ID
+        value: 1392111556954685450
+      - key: PARTNERSHIP_CHANNEL_ID
+        value: 1411451850485403830
+      - key: INVITE_ROLE_1_ID
+        value: 1392731553221578843
+      - key: INVITE_ROLE_3_ID
+        value: 1392731553624363058
+      - key: INVITE_ROLE_5_ID
+        value: 1392731554362425445
+      - key: INVITE_ROLE_10_ID
+        value: 1392731555188969613
+      - key: INVITE_ROLE_50_ID
+        value: 1392731615632818286
+      - key: INVITE_ROLE_100_ID
+        value: 1392731616060772424
