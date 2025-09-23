@@ -76,7 +76,7 @@ class MyBot(commands.Bot):
         if not cogs_loaded:
             print("❌ Nessun cog caricato! Provo a caricare manualmente...")
             # Prova a caricare i cog manualmente
-            cog_names = ['fun', 'verification', 'partnership', 'moderation', 'leveling', 'invite_tracker']
+            cog_names = ['fun', 'verification', 'partnership', 'moderation', 'leveling', 'invite_tracker', 'klubs']
             for cog_name in cog_names:
                 try:
                     await self.load_extension(cog_name)
@@ -167,4 +167,5 @@ if __name__ == "__main__":
         bot.run(token)
     else:
         print("❌ Token Discord non trovato!")
+
 
