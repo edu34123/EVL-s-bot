@@ -1,15 +1,20 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import asyncio
 import aiosqlite
 import os
 import random
 from datetime import datetime, timedelta
 
+
 class Leveling(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.cooldown = {}
+        
+        # ⭐⭐ AGGIUNGI QUESTA CONFIGURAZIONE ⭐⭐
+        self.LEVEL_CHANNEL_ID = int(os.getenv('LEVEL_LEADERBOARD_CHANNEL_ID', '0'))
+        self.leaderboard_message_id = None
         
         # Configurazione progressione livelli con 6,000,000 XP massimo
         self.level_requirements = {
@@ -480,3 +485,4 @@ class Leveling(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(Leveling(bot))
+
