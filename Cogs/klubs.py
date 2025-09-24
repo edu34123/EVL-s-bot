@@ -69,17 +69,17 @@ class Klubs(commands.Cog):
         await self.setup_klubs_channel()
 
     async def setup_klubs_channel(self):
-        """Configura il canale klubs"""
+        """Configura il canale klubs - ELIMINA MESSAGGI VECCHI"""
         for guild in self.bot.guilds:
             channel = guild.get_channel(self.KLUBS_CHANNEL_ID)
             if channel:
                 try:
-                    # Pulisci SOLO i messaggi di sistema vecchi
-                    async for message in channel.history(limit=30):
-                        if message.author == self.bot.user and any(keyword in message.content.lower() for keyword in ['klubs system', 'sistema di vocali privati', 'comandi disponibili']):
+                    # 🔥 ELIMINA TUTTI I MESSAGGI VECCHI DEL BOT
+                    async for message in channel.history(limit=50):
+                        if message.author == self.bot.user:
                             try:
                                 await message.delete()
-                                await asyncio.sleep(0.5)
+                                await asyncio.sleep(0.3)  # Piccola pausa per evitare rate limit
                             except:
                                 pass
                     
@@ -90,8 +90,9 @@ class Klubs(commands.Cog):
                     print(f"❌ Errore configurazione canale klubs: {e}")
 
     async def send_klubs_message(self, channel):
-        """Crea il messaggio embed per i klubs"""
+        """Crea il messaggio embed per i klubs CON PULSANTI SOTTO"""
         try:
+            # PRIMA invia l'embed
             embed = discord.Embed(
                 title="🎯 EChat APP - Klubs System",
                 description="Sistema di vocali privati",
@@ -118,7 +119,10 @@ class Klubs(commands.Cog):
                 inline=False
             )
             
-            # Crea i pulsanti
+            # 🔥 PRIMA INVIA L'EMBED
+            await channel.send(embed=embed)
+            
+            # 🔥 POI INVIA I PULSANTI IN UN MESSAGGIO SEPARATO SOTTO
             view = discord.ui.View(timeout=None)
             
             # Pulsante per vedere i ruoli autorizzati
@@ -161,13 +165,28 @@ class Klubs(commands.Cog):
                     return
                     
                 await interaction.response.defer()
+                # Elimina tutti i messaggi vecchi
+                async for message in channel.history(limit=20):
+                    if message.author == self.bot.user:
+                        try:
+                            await message.delete()
+                            await asyncio.sleep(0.3)
+                        except:
+                            pass
+                
+                await asyncio.sleep(2)
                 await self.send_klubs_message(channel)
-                await interaction.followup.send("✅ Messaggio aggiornato!", ephemeral=True)
+                await interaction.followup.send("✅ Messaggio klubs aggiornato!", ephemeral=True)
             
             refresh_button.callback = refresh_callback
             view.add_item(refresh_button)
             
-            await channel.send(embed=embed, view=view)
+            # 🔥 INVIA I PULSANTI IN UN MESSAGGIO SEPARATO DOPO L'EMBED
+            await channel.send(
+                "**Gestione Klubs:**",
+                view=view
+            )
+            
         except Exception as e:
             print(f"❌ Errore invio messaggio klubs: {e}")
 
@@ -180,6 +199,7 @@ class Klubs(commands.Cog):
         
         self.KLUBS_CHANNEL_ID = channel.id
         await self.send_and_delete(ctx, content=f"✅ Canale klubs impostato su {channel.mention}", delay=5)
+        await self.setup_klubs_channel()  # Rigenera il messaggio
 
     @commands.command(name='klub')
     async def klub_command(self, ctx, action: str = None, *, args: str = None):
