@@ -6,14 +6,13 @@ import os
 import random
 from datetime import datetime, timedelta
 
-
 class Leveling(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.cooldown = {}
         
-        # ⭐⭐ AGGIUNGI QUESTA CONFIGURAZIONE ⭐⭐
-        self.LEVEL_CHANNEL_ID = int(os.getenv('LEVEL_LEADERBOARD_CHANNEL_ID', '0'))
+        # Configurazione leaderboard automatica
+        self.LEVEL_CHANNEL_ID = int(os.getenv('LEVEL_LEADERBOARD_CHANNEL_ID', '1392483787384029294'))
         self.leaderboard_message_id = None
         
         # Configurazione progressione livelli con 6,000,000 XP massimo
@@ -186,29 +185,172 @@ class Leveling(commands.Cog):
             300: int(os.getenv('LEVEL_300_ROLE', '1419373736728985772'))
         }
 
+    def cog_unload(self):
+        """Ferma il task quando il cog viene scaricato"""
+        self.update_leaderboard.cancel()
+
+    @tasks.loop(minutes=30)
+    async def update_leaderboard(self):
+        """Task automatico per aggiornare la leaderboard"""
+        if self.LEVEL_CHANNEL_ID == 0:
+            return
+            
+        try:
+            for guild in self.bot.guilds:
+                channel = guild.get_channel(self.LEVEL_CHANNEL_ID)
+                if channel:
+                    await self.send_or_update_leaderboard(channel)
+                    break
+        except Exception as e:
+            print(f"❌ Errore aggiornamento leaderboard automatico: {e}")
+
+    @update_leaderboard.before_loop
+    async def before_update_leaderboard(self):
+        """Aspetta che il bot sia pronto prima di iniziare il task"""
+        await self.bot.wait_until_ready()
+
+    async def send_or_update_leaderboard(self, channel):
+        """Invia o aggiorna la leaderboard nel canale"""
+        try:
+            embed = await self.create_leaderboard_embed(channel.guild)
+            
+            if self.leaderboard_message_id:
+                try:
+                    message = await channel.fetch_message(self.leaderboard_message_id)
+                    await message.edit(embed=embed)
+                    print("✅ Leaderboard aggiornata")
+                    return
+                except:
+                    self.leaderboard_message_id = None
+            
+            async for message in channel.history(limit=10):
+                if message.author == self.bot.user and message.embeds:
+                    for embed_msg in message.embeds:
+                        if embed_msg.title and "Classifica Livelli" in embed_msg.title:
+                            self.leaderboard_message_id = message.id
+                            await message.edit(embed=embed)
+                            print("✅ Leaderboard aggiornata (messaggio esistente)")
+                            return
+            
+            message = await channel.send(embed=embed)
+            self.leaderboard_message_id = message.id
+            print("✅ Leaderboard creata")
+            
+        except Exception as e:
+            print(f"❌ Errore invio/aggiornamento leaderboard: {e}")
+
+    async def create_leaderboard_embed(self, guild):
+        """Crea l'embed della leaderboard"""
+        try:
+            async with aiosqlite.connect('database.db') as db:
+                cursor = await db.execute(
+                    '''SELECT user_id, xp, level, messages 
+                       FROM levels 
+                       WHERE guild_id = ? 
+                       ORDER BY xp DESC 
+                       LIMIT 15''',
+                    (guild.id,)
+                )
+                results = await cursor.fetchall()
+                
+                if not results:
+                    embed = discord.Embed(
+                        title="🏆 Classifica Livelli",
+                        description="*Nessun dato disponibile ancora...*",
+                        color=0xffd700
+                    )
+                    embed.set_footer(text="La classifica si aggiorna automaticamente ogni 30 minuti")
+                    return embed
+                
+                embed = discord.Embed(
+                    title="🏆 Classifica Livelli - Top 15",
+                    description="Classifica degli utenti più attivi del server",
+                    color=0xffd700,
+                    timestamp=datetime.now()
+                )
+                
+                leaderboard_text = ""
+                for i, (user_id, xp, level, messages) in enumerate(results, 1):
+                    user = guild.get_member(user_id)
+                    username = user.display_name if user else f"❓ Utente Sconosciuto"
+                    
+                    if i == 1: 
+                        medal = "🥇"
+                    elif i == 2: 
+                        medal = "🥈" 
+                    elif i == 3: 
+                        medal = "🥉"
+                    else: 
+                        medal = f"**#{i}**"
+                    
+                    leaderboard_text += (
+                        f"{medal} **{username}**\n"
+                        f"└ 📊 Livello **{level}** | ⭐ **{xp:,}** XP | 💬 **{messages}** messaggi\n\n"
+                    )
+                
+                embed.description = leaderboard_text
+                
+                total_users = len(results)
+                total_xp = sum(xp for _, xp, _, _ in results)
+                avg_level = sum(level for _, _, level, _ in results) / total_users
+                
+                embed.add_field(
+                    name="📈 Statistiche Server",
+                    value=(
+                        f"• **Utenti in classifica:** {total_users}\n"
+                        f"• **XP totale:** {total_xp:,}\n"
+                        f"• **Livello medio:** {avg_level:.1f}\n"
+                        f"• **Ultimo aggiornamento:** <t:{int(datetime.now().timestamp())}:R>"
+                    ),
+                    inline=False
+                )
+                
+                embed.set_footer(
+                    text="Classifica aggiornata automaticamente ogni 30 minuti • Usa >level per vedere il tuo livello"
+                )
+                
+                return embed
+                
+        except Exception as e:
+            print(f"❌ Errore creazione embed leaderboard: {e}")
+            embed = discord.Embed(
+                title="❌ Errore Classifica",
+                description="Si è verificato un errore nel caricare la classifica.",
+                color=0xff0000
+            )
+            return embed
+
+    async def update_leaderboard_now(self):
+        """Aggiorna immediatamente la leaderboard"""
+        try:
+            for guild in self.bot.guilds:
+                channel = guild.get_channel(self.LEVEL_CHANNEL_ID)
+                if channel:
+                    await self.send_or_update_leaderboard(channel)
+                    break
+        except Exception as e:
+            print(f"❌ Errore aggiornamento leaderboard immediato: {e}")
+
     def get_required_xp(self, level):
         """Calcola l'XP required per un dato livello"""
         if level in self.level_requirements:
             return self.level_requirements[level]
         elif level > 300:
-            # Per livelli sopra 300, usa incrementi di 150,000 XP
             base_xp = 7110000
             additional_levels = level - 300
             return base_xp + (additional_levels * 150000)
         else:
-            # Trova il livello più vicino e estrapola
             closest_level = max(lvl for lvl in self.level_requirements.keys() if lvl <= level)
             base_xp = self.level_requirements[closest_level]
             levels_diff = level - closest_level
-            return base_xp + (levels_diff * 15000)  # Incremento standard
+            return base_xp + (levels_diff * 15000)
 
     def get_level_from_xp(self, xp):
         """Calcola il livello basato sull'XP"""
-        if xp >= 6000000:  # Se ha 6M XP, calcola il livello corrispondente
-            # Trova il livello massimo sotto i 6M
+        if xp >= 6000000:
             max_level_under_6m = max(lvl for lvl, xp_req in self.level_requirements.items() if xp_req <= 6000000)
             additional_xp = xp - 6000000
-            additional_levels = additional_xp // 150000  # Ogni 150k XP = 1 livello
+            additional_levels = additional_xp // 150000
             return max_level_under_6m + additional_levels
         
         level = 1
@@ -220,7 +362,14 @@ class Leveling(commands.Cog):
     async def on_ready(self):
         """Inizializza il sistema di livelli"""
         print("✅ Sistema di Livelli caricato!")
+        print(f"✅ Canale leaderboard: {self.LEVEL_CHANNEL_ID}")
         await self.init_db()
+        
+        self.update_leaderboard.start()
+        
+        if self.LEVEL_CHANNEL_ID != 0:
+            await asyncio.sleep(5)
+            await self.update_leaderboard_now()
 
     async def init_db(self):
         """Inizializza il database"""
@@ -244,27 +393,23 @@ class Leveling(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message):
         """Gestisce l'XP quando un utente invia un messaggio"""
-        # Ignora messaggi di bot e DM
         if message.author.bot or not message.guild:
             return
 
-        # Cooldown di 3 secondi tra guadagni XP
         user_id = message.author.id
         current_time = datetime.now()
         
         if user_id in self.cooldown:
             time_diff = current_time - self.cooldown[user_id]
-            if time_diff.total_seconds() < 3:  # 3 secondi di cooldown
+            if time_diff.total_seconds() < 3:
                 return
         
         self.cooldown[user_id] = current_time
 
-        # XP random tra 15-25
         xp_gained = random.randint(15, 25)
         
         try:
             async with aiosqlite.connect('database.db') as db:
-                # Ottieni i dati attuali dell'utente
                 cursor = await db.execute(
                     'SELECT xp, level, messages FROM levels WHERE user_id = ? AND guild_id = ?',
                     (user_id, message.guild.id)
@@ -277,18 +422,15 @@ class Leveling(commands.Cog):
                     new_level = self.get_level_from_xp(new_xp)
                     new_messages = messages + 1
                     
-                    # Aggiorna i dati
                     await db.execute(
                         'UPDATE levels SET xp = ?, level = ?, messages = ?, last_message = ? WHERE user_id = ? AND guild_id = ?',
                         (new_xp, new_level, new_messages, current_time, user_id, message.guild.id)
                     )
                     
-                    # Controlla se è salito di livello
                     if new_level > current_level:
                         await self.handle_level_up(message, message.author, new_level, new_xp)
                 
                 else:
-                    # Nuovo utente
                     new_xp = xp_gained
                     new_level = 1
                     await db.execute(
@@ -305,7 +447,6 @@ class Leveling(commands.Cog):
         """Gestisce il livello up"""
         guild = message.guild
         
-        # Messaggio di livello up (solo per livelli multipli di 5 o sotto 20)
         if new_level <= 20 or new_level % 5 == 0:
             embed = discord.Embed(
                 title="🎉 Livello Up!",
@@ -316,19 +457,16 @@ class Leveling(commands.Cog):
             embed.add_field(name="Prossimo Livello", value=f"{self.get_required_xp(new_level + 1):,} XP", inline=True)
             embed.set_thumbnail(url=user.display_avatar.url)
             
-            # Invia il messaggio nel canale corrente
             try:
                 await message.channel.send(embed=embed, delete_after=10)
             except:
                 pass
         
-        # Assegna ruoli per livello
         await self.assign_level_roles(user, new_level, guild)
 
     async def assign_level_roles(self, user, new_level, guild):
         """Assegna i ruoli in base al livello"""
         try:
-            # Ruoli da assegnare per questo livello
             roles_to_assign = []
             for level, role_id in self.level_roles.items():
                 if new_level >= level and role_id != 0:
@@ -336,7 +474,6 @@ class Leveling(commands.Cog):
                     if role and role not in user.roles:
                         roles_to_assign.append(role)
             
-            # Assegna i ruoli
             if roles_to_assign:
                 await user.add_roles(*roles_to_assign, reason=f"Raggiunto livello {new_level}")
             
@@ -419,40 +556,8 @@ class Leveling(commands.Cog):
     async def leaderboard_command(self, ctx):
         """Mostra la classifica dei livelli"""
         try:
-            async with aiosqlite.connect('database.db') as db:
-                cursor = await db.execute(
-                    'SELECT user_id, xp, level FROM levels WHERE guild_id = ? ORDER BY xp DESC LIMIT 10',
-                    (ctx.guild.id,)
-                )
-                results = await cursor.fetchall()
-                
-                if not results:
-                    await ctx.send("❌ Nessun dato nella classifica ancora!")
-                    return
-                
-                embed = discord.Embed(
-                    title="🏆 Classifica Livelli",
-                    description="Top 10 utenti per XP",
-                    color=0xffd700
-                )
-                
-                leaderboard_text = ""
-                for i, (user_id, xp, level) in enumerate(results, 1):
-                    user = ctx.guild.get_member(user_id)
-                    username = user.display_name if user else f"Utente Sconosciuto ({user_id})"
-                    
-                    medal = ""
-                    if i == 1: medal = "🥇"
-                    elif i == 2: medal = "🥈"
-                    elif i == 3: medal = "🥉"
-                    else: medal = f"{i}."
-                    
-                    leaderboard_text += f"{medal} **{username}** - Livello {level} | {xp:,} XP\n"
-                
-                embed.description = leaderboard_text
-                embed.set_footer(text=f"Richiesto da {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
-                
-                await ctx.send(embed=embed)
+            embed = await self.create_leaderboard_embed(ctx.guild)
+            await ctx.send(embed=embed)
                 
         except Exception as e:
             print(f"❌ Errore leaderboard: {e}")
@@ -483,6 +588,38 @@ class Leveling(commands.Cog):
             print(f"❌ Errore setlevel: {e}")
             await ctx.send("❌ Errore nell'impostare il livello.")
 
+    @commands.command(name='update_lb')
+    @commands.has_permissions(administrator=True)
+    async def update_leaderboard_command(self, ctx):
+        """Aggiorna manualmente la leaderboard (solo admin)"""
+        await ctx.message.delete()
+        try:
+            if self.LEVEL_CHANNEL_ID == 0:
+                await ctx.send("❌ Canale leaderboard non configurato!", delete_after=5)
+                return
+                
+            channel = ctx.guild.get_channel(self.LEVEL_CHANNEL_ID)
+            if channel:
+                await self.send_or_update_leaderboard(channel)
+                await ctx.send("✅ Leaderboard aggiornata manualmente!", delete_after=5)
+            else:
+                await ctx.send("❌ Canale leaderboard non trovato!", delete_after=5)
+                
+        except Exception as e:
+            print(f"❌ Errore aggiornamento manuale leaderboard: {e}")
+            await ctx.send("❌ Errore nell'aggiornare la leaderboard!", delete_after=5)
+
+    @commands.command(name='set_leaderboard_channel')
+    @commands.has_permissions(administrator=True)
+    async def set_leaderboard_channel(self, ctx, channel: discord.TextChannel = None):
+        """Imposta il canale per la leaderboard (solo admin)"""
+        if channel is None:
+            channel = ctx.channel
+            
+        self.LEVEL_CHANNEL_ID = channel.id
+        await ctx.send(f"✅ Canale leaderboard impostato su {channel.mention}", delete_after=10)
+        
+        await self.update_leaderboard_now()
+
 async def setup(bot):
     await bot.add_cog(Leveling(bot))
-
