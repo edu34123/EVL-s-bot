@@ -1,36 +1,154 @@
-async def send_english_rules_message(self):
-    """Invia il regolamento INGLESE nel canale dedicato"""
-    for guild in self.bot.guilds:
-        channel = guild.get_channel(self.RULES_CHANNEL_ID)
-        if channel:
-            try:
-                # Pulisci SOLO se è un canale diverso da quello italiano
-                if self.RULES_CHANNEL_ID != self.ITALIAN_RULES_CHANNEL_ID:
-                    print(f"🔄 Pulizia canale regolamento inglese: #{channel.name}")
-                    deleted_count = 0
+import discord
+from discord import app_commands
+from discord.ext import commands
+import asyncio
+import os
+
+class VerificationSystem(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        
+        # Configurazione
+        self.RULES_CHANNEL_ID = int(os.getenv('RULES_CHANNEL_ID', '1392062840097210478'))
+        self.ITALIAN_RULES_CHANNEL_ID = int(os.getenv('ITALIAN_RULES_CHANNEL_ID', '1392062840097210478'))
+        self.VERIFY_CHANNEL_ID = int(os.getenv('VERIFY_CHANNEL_ID', '1392062838197059644'))
+        
+        # Ruoli
+        self.UNVERIFIED_ROLE_ID = int(os.getenv('UNVERIFIED_ROLE_ID', '1392111556954685450'))
+        self.VERIFIED_ROLE_ID = int(os.getenv('VERIFIED_ROLE_ID', '1392128530438951084'))
+        self.ITA_ROLE_ID = int(os.getenv('ITA_ROLE_ID', '1402668379533348944'))
+        self.ENG_ROLE_ID = int(os.getenv('ENG_ROLE_ID', '1402668928890568785'))
+        self.FAN_ROLE_ID = int(os.getenv('FAN_ROLE_ID', '1392128530438951084'))
+        
+        self.verification_setup_done = False
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Avvia automaticamente il setup quando il bot è pronto"""
+        print("✅ Sistema di Verifica caricato!")
+        
+        # Aspetta che il bot sia completamente pronto
+        await asyncio.sleep(5)
+        
+        # Esegui il setup solo se non è già stato fatto
+        if not self.verification_setup_done:
+            await self.setup_verification_system()
+
+    async def setup_verification_system(self):
+        """Setup completo del sistema di verifica"""
+        print("🔄 AVVIO SETUP AUTOMATICO DEL SISTEMA DI VERIFICA...")
+        
+        try:
+            # 1. PRIMA invia il REGOLAMENTO ITALIANO
+            if self.ITALIAN_RULES_CHANNEL_ID != 0:
+                print("📜 Invio regolamento italiano...")
+                await self.send_italian_rules()
+                await asyncio.sleep(3)
+            else:
+                print("❌ Canale regolamento italiano non configurato")
+
+            # 2. POI invia il REGOLAMENTO INGLESE
+            if self.RULES_CHANNEL_ID != 0:
+                print("📜 Invio regolamento inglese...")
+                await self.send_english_rules()
+                await asyncio.sleep(3)
+            else:
+                print("❌ Canale regolamento inglese non configurato")
+
+            # 3. INFINE invia il MESSAGGIO di VERIFICA
+            if self.VERIFY_CHANNEL_ID != 0:
+                print("✅ Invio messaggio di verifica...")
+                await self.send_verification_message()
+                await asyncio.sleep(2)
+            else:
+                print("❌ Canale verifica non configurato")
+
+            self.verification_setup_done = True
+            print("🎉 SETUP COMPLETATO! Regolamento e verifica inviati correttamente!")
+
+        except Exception as e:
+            print(f"❌ ERRORE durante il setup: {e}")
+
+    async def send_italian_rules(self):
+        """Invia il regolamento italiano"""
+        for guild in self.bot.guilds:
+            channel = guild.get_channel(self.ITALIAN_RULES_CHANNEL_ID)
+            if channel:
+                try:
+                    # Pulizia messaggi vecchi del bot
+                    print(f"🧹 Pulizia canale italiano: #{channel.name}")
                     async for message in channel.history(limit=10):
                         if message.author == self.bot.user:
-                            try:
-                                await message.delete()
-                                deleted_count += 1
-                                await asyncio.sleep(0.5)
-                            except:
-                                pass
+                            await message.delete()
+                            await asyncio.sleep(0.5)
                     
-                    if deleted_count > 0:
-                        print(f"🗑️ Eliminati {deleted_count} messaggi vecchi")
-                
-                await asyncio.sleep(2)
-                
-                # REGOLAMENTO INGLESE AGGIORNATO
-                embed_eng = discord.Embed(
-                    title="📜 SERVER RULES - ENGLISH 🇬🇧",
-                    color=0x0099ff,
-                    description="**Welcome to the server! Please read the rules carefully before participating.**"
-                )
-                
-                # TESTO AGGIORNATO con le nuove regole
-                rules_text = """
+                    await asyncio.sleep(2)
+                    
+                    # REGOLAMENTO ITALIANO
+                    embed = discord.Embed(
+                        title="📜 REGOLAMENTO SERVER - ITALIANO 🇮🇹",
+                        color=0x00ff00,
+                        description="**Benvenuto nel server! Leggi attentamente il regolamento prima di partecipare.**"
+                    )
+                    
+                    rules_text = """
+**1. RISPETTO RECIPROCO**
+• Sii rispettoso verso tutti i membri
+• No insulti, discriminazioni o hate speech
+• Mantieni un linguaggio educato
+
+**2. CONTENUTI APPROPRIATI**
+• No spam o flood di messaggi
+• No contenuti NSFW/18+
+• No condivisione di informazioni personali
+
+**3. CANALI APPROPRIATI**
+• Usa i canali per lo scopo previsto
+• No off-topic nei canali dedicati
+• Segui le indicazioni dello staff
+
+**⛔ SANZIONI**
+Il mancato rispetto delle regole comporterà:
+• 🟡 Avvertimento
+• 🔴 Mute temporaneo  
+• 🔴 Ban permanente per recidiva
+
+Accettando queste regole, confermi di averle lette e accettate.
+"""
+                    
+                    embed.add_field(name="Regolamento Completo", value=rules_text, inline=False)
+                    embed.set_footer(text="Regolamento Server Italiano")
+                    
+                    await channel.send(embed=embed)
+                    print(f"✅ Regolamento italiano inviato in #{channel.name}")
+                    
+                except Exception as e:
+                    print(f"❌ Errore regolamento italiano: {e}")
+
+    async def send_english_rules(self):
+        """Invia il regolamento inglese"""
+        for guild in self.bot.guilds:
+            channel = guild.get_channel(self.RULES_CHANNEL_ID)
+            if channel:
+                try:
+                    # Pulizia solo se canale diverso da italiano
+                    if self.RULES_CHANNEL_ID != self.ITALIAN_RULES_CHANNEL_ID:
+                        print(f"🧹 Pulizia canale inglese: #{channel.name}")
+                        async for message in channel.history(limit=10):
+                            if message.author == self.bot.user:
+                                await message.delete()
+                                await asyncio.sleep(0.5)
+                    
+                    await asyncio.sleep(2)
+                    
+                    # REGOLAMENTO INGLESE AGGIORNATO
+                    embed = discord.Embed(
+                        title="📜 SERVER RULES - ENGLISH 🇬🇧",
+                        color=0x0099ff,
+                        description="**Welcome to the server! Please read the rules carefully before participating.**"
+                    )
+                    
+                    rules_text = """
 **1. RESPECT AND BEHAVIOR**
 • Don't be toxic to other members!
 • No insults, discrimination or hate speech
@@ -49,7 +167,7 @@ async def send_english_rules_message(self):
 
 **4. SAFETY AND PRIVACY**
 • Don't share personal info!
-• Only share personal information in ⁠👋・introductions channel
+• Only share personal information in introductions channel
 • No offensive profile pictures or names!
 • No impersonation of other users!
 
@@ -58,43 +176,185 @@ async def send_english_rules_message(self):
 • Only English and Italian languages please!
 • Respect Discord's Terms of Service!
 
-**6. GENERAL RULES**
-• Use appropriate channels for each content
-• No off-topic in dedicated channels
-• Follow staff instructions immediately
-
 **⛔ SANCTIONS**
 Failure to comply with these rules will result in:
-• 🟡 **Warning** - First offense
-• 🔴 **Temporary mute** - Repeated offenses
-• 🔴 **Permanent ban** - Severe or repeated violations
+• 🟡 Warning
+• 🔴 Temporary mute
+• 🔴 Permanent ban for repeat offenses
 
 By accepting these rules, you confirm you have read and accepted them.
 """
-                
-                embed_eng.add_field(
-                    name="Complete Server Rules",
-                    value=rules_text,
-                    inline=False
-                )
-                
-                # Aggiungi riferimento al canale italiano se esiste
-                if self.RULES_CHANNEL_ID != self.ITALIAN_RULES_CHANNEL_ID:
+                    
+                    embed.add_field(name="Complete Server Rules", value=rules_text, inline=False)
+                    embed.set_footer(text="Server Rules - English Version")
+                    
+                    await channel.send(embed=embed)
+                    print(f"✅ Regolamento inglese inviato in #{channel.name}")
+                    
+                except Exception as e:
+                    print(f"❌ Errore regolamento inglese: {e}")
+
+    async def send_verification_message(self):
+        """Invia il messaggio di verifica"""
+        for guild in self.bot.guilds:
+            channel = guild.get_channel(self.VERIFY_CHANNEL_ID)
+            if channel:
+                try:
+                    # Pulizia messaggi vecchi
+                    print(f"🧹 Pulizia canale verifica: #{channel.name}")
+                    async for message in channel.history(limit=10):
+                        if message.author == self.bot.user:
+                            await message.delete()
+                            await asyncio.sleep(0.5)
+                    
+                    await asyncio.sleep(2)
+                    
+                    # MESSAGGIO DI VERIFICA COMPLETO
+                    embed = discord.Embed(
+                        title="✅ VERIFICA ACCOUNT / ACCOUNT VERIFICATION",
+                        color=0xffff00
+                    )
+                    
+                    embed.description = (
+                        "**Benvenuto nel server!** 🇮🇹\n"
+                        "**Welcome to the server!** 🇬🇧\n\n"
+                        
+                        "Per accedere a tutte le funzionalità, completa la verifica.\n"
+                        "To access all features, complete the verification."
+                    )
+                    
+                    # Riferimenti ai canali regolamento
+                    rules_refs = ""
                     italian_channel = guild.get_channel(self.ITALIAN_RULES_CHANNEL_ID)
+                    english_channel = guild.get_channel(self.RULES_CHANNEL_ID)
+                    
                     if italian_channel:
-                        embed_eng.add_field(
-                            name="🇮🇹 Italian Rules",
-                            value=f"For rules in Italian, visit {italian_channel.mention}",
-                            inline=False
-                        )
-                
-                embed_eng.set_footer(text="Server Rules - English Version • Last update")
-                embed_eng.timestamp = discord.utils.utcnow()
-                
-                await channel.send(embed=embed_eng)
-                print(f"✅ Regolamento INGLESE AGGIORNATO inviato in #{channel.name}")
-                
-            except Exception as e:
-                print(f"❌ Errore invio regolamento inglese: {e}")
+                        rules_refs += f"• 🇮🇹 **Regolamento Italiano:** {italian_channel.mention}\n"
+                    if english_channel and self.RULES_CHANNEL_ID != self.ITALIAN_RULES_CHANNEL_ID:
+                        rules_refs += f"• 🇬🇧 **English Rules:** {english_channel.mention}\n"
+                    
+                    embed.add_field(
+                        name="📜 LEGGI IL REGOLAMENTO / READ THE RULES",
+                        value=f"Prima di verificarti, leggi le regole:\n{rules_refs}",
+                        inline=False
+                    )
+                    
+                    embed.add_field(
+                        name="🌍 SELEZIONA LINGUA / SELECT LANGUAGE",
+                        value=(
+                            "**🇮🇹 Italiano** - Se sei italiano o preferisci l'italiano\n"
+                            "**🇬🇧 English** - Se preferisci l'inglese\n\n"
+                            "La scelta determina la sezione del server che vedrai."
+                        ),
+                        inline=False
+                    )
+                    
+                    embed.add_field(
+                        name="✅ COMPLETA LA VERIFICA / COMPLETE VERIFICATION",
+                        value="Clicca il pulsante sotto per iniziare la verifica.",
+                        inline=False
+                    )
+                    
+                    embed.set_footer(text="Verifica richiesta per l'accesso completo al server")
+                    
+                    # Crea il pulsante di verifica
+                    view = discord.ui.View(timeout=None)
+                    view.add_item(VerifyButton())
+                    
+                    # Invia il messaggio
+                    await channel.send(
+                        content=(
+                            "**👇 CLICCA IL PULSANTE PER VERIFICARTI 👇**\n"
+                            "**👇 CLICK THE BUTTON TO VERIFY 👇**"
+                        ),
+                        embed=embed,
+                        view=view
+                    )
+                    
+                    print(f"✅ Messaggio di verifica inviato in #{channel.name}")
+                    
+                except Exception as e:
+                    print(f"❌ Errore invio verifica: {e}")
+
+    # COMANDO PER FORZARE IL RE-INVIO
+    @app_commands.command(name="setup_verify", description="Re-invia regolamento e verifica (Admin)")
+    @app_commands.default_permissions(administrator=True)
+    async def setup_verify(self, interaction: discord.Interaction):
+        """Comando admin per re-inviare i messaggi"""
+        await interaction.response.defer(ephemeral=True)
+        
+        self.verification_setup_done = False
+        await self.setup_verification_system()
+        
+        await interaction.followup.send("✅ Regolamento e verifica re-inviati!", ephemeral=True)
+
+class VerifyButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(
+            label="🎯 Inizia Verifica / Start Verification",
+            style=discord.ButtonStyle.success,
+            custom_id="verify_start_button",
+            emoji="✅"
+        )
+    
+    async def callback(self, interaction: discord.Interaction):
+        """Gestisce il pulsante di verifica"""
+        cog = interaction.client.get_cog('VerificationSystem')
+        if not cog:
+            await interaction.response.send_message("❌ Sistema di verifica non disponibile", ephemeral=True)
+            return
+        
+        # Embed di selezione lingua
+        embed = discord.Embed(
+            title="🌍 Seleziona Lingua / Select Language",
+            color=0x0099ff,
+            description=(
+                "**Sei italiano o preferisci l'italiano?** → Clicca **Italiano**\n"
+                "**Are you English or prefer English?** → Click **English**\n\n"
+                "La scelta determina la sezione del server che vedrai."
+            )
+        )
+        
+        # Crea i pulsanti per la selezione lingua
+        view = discord.ui.View(timeout=180)
+        
+        ita_button = discord.ui.Button(
+            label="🇮🇹 Italiano",
+            style=discord.ButtonStyle.primary,
+            custom_id="verify_ita"
+        )
+        
+        eng_button = discord.ui.Button(
+            label="🇬🇧 English",
+            style=discord.ButtonStyle.primary,
+            custom_id="verify_eng"
+        )
+        
+        # Callbacks
+        async def ita_callback(interaction):
+            await cog.complete_verification(interaction, "ita")
+        
+        async def eng_callback(interaction):
+            await cog.complete_verification(interaction, "eng")
+        
+        ita_button.callback = ita_callback
+        eng_button.callback = eng_callback
+        
+        view.add_item(ita_button)
+        view.add_item(eng_button)
+        
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+    async def complete_verification(self, interaction: discord.Interaction, language: str):
+        """Completa la verifica (da implementare)"""
+        # Implementazione della verifica...
+        if language == "ita":
+            message = "✅ Verifica completata! Sezione Italiana attivata. Benvenuto! 🎉"
         else:
-            print(f"❌ Canale regolamento inglese non trovato (ID: {self.RULES_CHANNEL_ID})")
+            message = "✅ Verification completed! English Section activated. Welcome! 🎉"
+        
+        embed = discord.Embed(description=message, color=0x00ff00)
+        await interaction.response.edit_message(embed=embed, view=None)
+
+async def setup(bot):
+    await bot.add_cog(VerificationSystem(bot))
