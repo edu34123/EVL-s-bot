@@ -20,7 +20,8 @@ def get_env_var(name, default=None):
 VERIFIED_ROLE_ID = int(get_env_var('VERIFIED_ROLE_ID', 1392128530438951084))
 UNVERIFIED_ROLE_ID = int(get_env_var('UNVERIFIED_ROLE_ID', 1392111556954685450))
 PARTNERSHIP_CHANNEL_ID = int(get_env_var('PARTNERSHIP_CHANNEL_ID', 1411451850485403830))
-TICKET_CHANNEL_ID = int(get_env_var('TICKET_CHANNEL_ID', 1392745580484231260))
+TICKET_CHANNEL_ITA_ID = int(get_env_var('TICKET_CHANNEL_ITA_ID', 1392745580484231260))  # Canale italiano
+TICKET_CHANNEL_ENG_ID = int(get_env_var('TICKET_CHANNEL_ENG_ID', 1392745580484231260))  # Canale inglese
 
 INVITE_ROLES = {
     1: int(get_env_var('INVITE_ROLE_1_ID', 1392731553221578843)),
@@ -31,61 +32,61 @@ INVITE_ROLES = {
     100: int(get_env_var('INVITE_ROLE_100_ID', 1392731616060772424))
 }
 
-# VIEW CORRETTA PER I PULSANTI TICKET
-class TicketCreationView(discord.ui.View):
+# VIEW PER ITALIANO
+class TicketCreationViewITA(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
     
-    @discord.ui.button(label="🤝 Partnership", style=discord.ButtonStyle.primary, custom_id="auto_ticket_partnership")
+    @discord.ui.button(label="🤝 Partnership", style=discord.ButtonStyle.primary, custom_id="ticket_ita_partnership")
     async def partnership_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.create_ticket_with_language(interaction, "partnership")
+        await self.create_ticket_ita(interaction, "partnership")
     
-    @discord.ui.button(label="🛠️ Supporto", style=discord.ButtonStyle.secondary, custom_id="auto_ticket_support")
+    @discord.ui.button(label="🛠️ Supporto", style=discord.ButtonStyle.secondary, custom_id="ticket_ita_support")
     async def support_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.create_ticket_with_language(interaction, "support")
+        await self.create_ticket_ita(interaction, "support")
     
-    async def create_ticket_with_language(self, interaction: discord.Interaction, ticket_type: str):
-        """Crea ticket determinando automaticamente la lingua - VERSIONE CORRETTA"""
+    async def create_ticket_ita(self, interaction: discord.Interaction, ticket_type: str):
+        """Crea ticket ITALIANO"""
         try:
-            # Cerca i cog ticket
             cog_ita = interaction.client.get_cog('TicketSystemITA')
+            
+            if cog_ita:
+                print(f"🎯 Creazione ticket ITALIANO per {interaction.user.display_name}")
+                await cog_ita.create_ticket(interaction, ticket_type)
+            else:
+                await interaction.response.send_message("❌ Sistema ticket italiano non disponibile", ephemeral=True)
+                
+        except Exception as e:
+            error_msg = f"❌ Errore creazione ticket ITA: {str(e)}"
+            print(error_msg)
+            await interaction.response.send_message(error_msg, ephemeral=True)
+
+# VIEW PER INGLESE
+class TicketCreationViewENG(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+    
+    @discord.ui.button(label="🤝 Partnership", style=discord.ButtonStyle.primary, custom_id="ticket_eng_partnership")
+    async def partnership_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.create_ticket_eng(interaction, "partnership")
+    
+    @discord.ui.button(label="🛠️ Support", style=discord.ButtonStyle.secondary, custom_id="ticket_eng_support")
+    async def support_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.create_ticket_eng(interaction, "support")
+    
+    async def create_ticket_eng(self, interaction: discord.Interaction, ticket_type: str):
+        """Crea ticket INGLESE"""
+        try:
             cog_eng = interaction.client.get_cog('TicketSystemENG')
             
-            print(f"🔍 Cog trovati: ITA={cog_ita is not None}, ENG={cog_eng is not None}")
-            
-            if not cog_ita and not cog_eng:
-                await interaction.response.send_message("❌ Nessun sistema ticket caricato.", ephemeral=True)
-                return
-            
-            # Determina la lingua in base ai ruoli - CORREZIONE
-            ita_role_id = 1402668379533348944  # RUOLO ITALIANO
-            eng_role_id = 1402668928890568785  # RUOLO INGLESE
-            
-            # VERIFICA ESPLICITA DEI RUOLI DELL'UTENTE
-            user_has_ita_role = any(role.id == ita_role_id for role in interaction.user.roles)
-            user_has_eng_role = any(role.id == eng_role_id for role in interaction.user.roles)
-            
-            print(f"👤 Utente: {interaction.user.display_name}")
-            print(f"🎯 Ruoli lingua: ITA={user_has_ita_role}, ENG={user_has_eng_role}")
-            print(f"🔍 Ruoli utente: {[role.name for role in interaction.user.roles]}")
-            
-            # LOGICA CORRETTA: Se ha ruolo italiano → ticket italiano
-            if user_has_ita_role:
-                print("🎯 SCELTA: Ticket ITALIANO")
-                if cog_ita:
-                    await cog_ita.create_ticket(interaction, ticket_type)
-                else:
-                    await interaction.response.send_message("❌ Sistema ticket italiano non disponibile", ephemeral=True)
+            if cog_eng:
+                print(f"🎯 Creazione ticket INGLESE per {interaction.user.display_name}")
+                await cog_eng.create_ticket(interaction, ticket_type)
             else:
-                # Default a inglese se non ha ruolo italiano
-                print("🎯 SCELTA: Ticket INGLESE (default)")
-                if cog_eng:
-                    await cog_eng.create_ticket(interaction, ticket_type)
-                else:
-                    await interaction.response.send_message("❌ Sistema ticket inglese non disponibile", ephemeral=True)
-                    
+                await interaction.response.send_message("❌ Sistema ticket inglese non disponibile", ephemeral=True)
+                
         except Exception as e:
-            error_msg = f"❌ Errore creazione ticket: {str(e)}"
+            error_msg = f"❌ Errore creazione ticket ENG: {str(e)}"
             print(error_msg)
             await interaction.response.send_message(error_msg, ephemeral=True)
 
@@ -94,7 +95,8 @@ class MyBot(commands.Bot):
         intents = discord.Intents.all()
         intents.message_content = True
         super().__init__(command_prefix='>', intents=intents, help_command=None)
-        self.ticket_channel_id = TICKET_CHANNEL_ID
+        self.ticket_channel_ita_id = TICKET_CHANNEL_ITA_ID
+        self.ticket_channel_eng_id = TICKET_CHANNEL_ENG_ID
 
     async def setup_hook(self):
         # DEBUG: mostra struttura file
@@ -149,9 +151,10 @@ class MyBot(commands.Bot):
         print(f"   TicketSystemITA: {'✅' if cog_ita else '❌'}")
         print(f"   TicketSystemENG: {'✅' if cog_eng else '❌'}")
         
-        # AGGIUNGI VIEW PERSISTENTE
-        self.add_view(TicketCreationView())
-        print("✅ View persistente aggiunta!")
+        # AGGIUNGI VIEW PERSISTENTI SEPARATE
+        self.add_view(TicketCreationViewITA())
+        self.add_view(TicketCreationViewENG())
+        print("✅ View persistenti aggiunte!")
         
         # Inizializza il database
         await self.init_db()
@@ -191,78 +194,101 @@ class MyBot(commands.Bot):
             print(f"❌ Errore database: {e}")
 
     async def setup_ticket_messages(self):
-        """Invia automaticamente i messaggi dei ticket quando il bot si avvia"""
-        print("🔄 Setup automatico messaggi ticket...")
+        """Invia i messaggi dei ticket in canali separati"""
+        print("🔄 Setup messaggi ticket in canali separati...")
         
         for guild in self.guilds:
+            # CANALE ITALIANO
             try:
-                channel = guild.get_channel(self.ticket_channel_id)
-                if not channel:
-                    print(f"❌ Canale ticket non trovato nel server {guild.name}")
-                    continue
-                
-                print(f"✅ Trovato canale ticket: #{channel.name} in {guild.name}")
-                
-                # Pulisci i vecchi messaggi del bot
-                try:
-                    async for message in channel.history(limit=20):
-                        if message.author == self.user:
-                            await message.delete()
-                            await asyncio.sleep(0.5)
-                    print(f"🧹 Pulizia completata in #{channel.name}")
-                except Exception as e:
-                    print(f"⚠️ Errore durante la pulizia: {e}")
-                
-                await asyncio.sleep(2)
-                
-                # EMBED ITALIANO
-                embed_ita = discord.Embed(
-                    title="🎫 SISTEMA TICKET - ITALIANO 🇮🇹",
-                    color=0x00ff00,
-                    description="**Apri un ticket per richiedere assistenza o partnership!**"
-                )
-                
-                embed_ita.add_field(
-                    name="📋 Tipi di Ticket Disponibili",
-                    value="**🤝 Partnership** - Per collaborazioni e partnership\n**🛠️ Supporto** - Per assistenza e problemi tecnici",
-                    inline=False
-                )
-                
-                embed_ita.add_field(
-                    name="📜 Regole Ticket",
-                    value="• Non taggare lo staff, verranno automaticamente notificati\n• Il ticket verrà chiuso dopo 24h di inattività\n• Sii chiaro e conciso nella tua richiesta\n• Rispetta lo staff e le sue decisioni",
-                    inline=False
-                )
-                
-                # EMBED INGLESE
-                embed_eng = discord.Embed(
-                    title="🎫 TICKET SYSTEM - ENGLISH 🇬🇧",
-                    color=0x0099ff,
-                    description="**Open a ticket to request assistance or partnership!**"
-                )
-                
-                embed_eng.add_field(
-                    name="📋 Available Ticket Types",
-                    value="**🤝 Partnership** - For collaborations and partnerships\n**🛠️ Support** - For assistance and technical issues",
-                    inline=False
-                )
-                
-                embed_eng.add_field(
-                    name="📜 Ticket Rules",
-                    value="• Don't ping staff, they will be automatically notified\n• Ticket will be closed after 24h of inactivity\n• Be clear and concise in your request\n• Respect staff and their decisions",
-                    inline=False
-                )
-                
-                view = TicketCreationView()
-                
-                # Invia i messaggi
-                await channel.send(embed=embed_ita, view=view)
-                await channel.send(embed=embed_eng, view=view)
-                
-                print(f"✅ Messaggi ticket inviati in #{channel.name}")
-                
+                channel_ita = guild.get_channel(self.ticket_channel_ita_id)
+                if not channel_ita:
+                    print(f"❌ Canale ticket italiano {self.ticket_channel_ita_id} non trovato!")
+                else:
+                    print(f"✅ Trovato canale ticket italiano: #{channel_ita.name}")
+                    
+                    # Pulizia canale italiano
+                    try:
+                        async for message in channel_ita.history(limit=20):
+                            if message.author == self.user:
+                                await message.delete()
+                                await asyncio.sleep(0.5)
+                        print(f"🧹 Pulizia completata in #{channel_ita.name}")
+                    except Exception as e:
+                        print(f"⚠️ Errore durante la pulizia italiano: {e}")
+                    
+                    await asyncio.sleep(2)
+                    
+                    # EMBED ITALIANO
+                    embed_ita = discord.Embed(
+                        title="🎫 SISTEMA TICKET - ITALIANO 🇮🇹",
+                        color=0x00ff00,
+                        description="**Apri un ticket per richiedere assistenza o partnership!**"
+                    )
+                    
+                    embed_ita.add_field(
+                        name="📋 Tipi di Ticket Disponibili",
+                        value="**🤝 Partnership** - Per collaborazioni e partnership\n**🛠️ Supporto** - Per assistenza e problemi tecnici",
+                        inline=False
+                    )
+                    
+                    embed_ita.add_field(
+                        name="📜 Regole Ticket",
+                        value="• Non taggare lo staff, verranno automaticamente notificati\n• Il ticket verrà chiuso dopo 24h di inattività\n• Sii chiaro e conciso nella tua richiesta",
+                        inline=False
+                    )
+                    
+                    view_ita = TicketCreationViewITA()
+                    await channel_ita.send(embed=embed_ita, view=view_ita)
+                    print(f"✅ Messaggio ticket italiano inviato in #{channel_ita.name}")
+                    
             except Exception as e:
-                print(f"❌ Errore durante l'invio dei messaggi ticket in {guild.name}: {e}")
+                print(f"❌ Errore canale italiano: {e}")
+            
+            # CANALE INGLESE
+            try:
+                channel_eng = guild.get_channel(self.ticket_channel_eng_id)
+                if not channel_eng:
+                    print(f"❌ Canale ticket inglese {self.ticket_channel_eng_id} non trovato!")
+                else:
+                    print(f"✅ Trovato canale ticket inglese: #{channel_eng.name}")
+                    
+                    # Pulizia canale inglese
+                    try:
+                        async for message in channel_eng.history(limit=20):
+                            if message.author == self.user:
+                                await message.delete()
+                                await asyncio.sleep(0.5)
+                        print(f"🧹 Pulizia completata in #{channel_eng.name}")
+                    except Exception as e:
+                        print(f"⚠️ Errore durante la pulizia inglese: {e}")
+                    
+                    await asyncio.sleep(2)
+                    
+                    # EMBED INGLESE
+                    embed_eng = discord.Embed(
+                        title="🎫 TICKET SYSTEM - ENGLISH 🇬🇧",
+                        color=0x0099ff,
+                        description="**Open a ticket to request assistance or partnership!**"
+                    )
+                    
+                    embed_eng.add_field(
+                        name="📋 Available Ticket Types",
+                        value="**🤝 Partnership** - For collaborations and partnerships\n**🛠️ Support** - For assistance and technical issues",
+                        inline=False
+                    )
+                    
+                    embed_eng.add_field(
+                        name="📜 Ticket Rules",
+                        value="• Don't ping staff, they will be automatically notified\n• Ticket will be closed after 24h of inactivity\n• Be clear and concise in your request",
+                        inline=False
+                    )
+                    
+                    view_eng = TicketCreationViewENG()
+                    await channel_eng.send(embed=embed_eng, view=view_eng)
+                    print(f"✅ Messaggio ticket inglese inviato in #{channel_eng.name}")
+                    
+            except Exception as e:
+                print(f"❌ Errore canale inglese: {e}")
 
 bot = MyBot()
 
