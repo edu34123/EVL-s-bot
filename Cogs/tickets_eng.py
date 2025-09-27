@@ -4,6 +4,44 @@ from discord.ext import commands
 import asyncio
 import os
 
+# DEFINISCI LA VIEW PRIMA DELLA CLASSE PRINCIPALE
+class TicketViewENG(discord.ui.View):
+    def __init__(self, cog, ticket_channel_id):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.ticket_channel_id = ticket_channel_id
+    
+    @discord.ui.button(label="🎯 Claim", style=discord.ButtonStyle.success, custom_id="claim_eng")
+    async def claim(self, interaction: discord.Interaction, button: discord.ui.Button):
+        staff_role_id = int(os.getenv('STAFF_ROLE_ID', '1394357096295956580'))
+        staff_role = interaction.guild.get_role(staff_role_id)
+        
+        if staff_role and staff_role not in interaction.user.roles:
+            await interaction.response.send_message("❌ Only staff can claim tickets!", ephemeral=True)
+            return
+        
+        await self.cog.claim_ticket(interaction, self.ticket_channel_id)
+    
+    @discord.ui.button(label="🔒 Close", style=discord.ButtonStyle.danger, custom_id="close_eng")
+    async def close(self, interaction: discord.Interaction, button: discord.ui.Button):
+        ticket_info = self.cog.open_tickets.get(self.ticket_channel_id)
+        if not ticket_info:
+            await interaction.response.send_message("❌ Ticket not found!", ephemeral=True)
+            return
+        
+        staff_role_id = int(os.getenv('STAFF_ROLE_ID', '1400000000000000003'))
+        staff_role = interaction.guild.get_role(staff_role_id)
+        
+        is_staff = staff_role and staff_role in interaction.user.roles
+        is_owner = ticket_info["owner"] == interaction.user.id
+        is_claimer = ticket_info["claimed_by"] == interaction.user.id
+        
+        if not (is_staff or is_owner or is_claimer):
+            await interaction.response.send_message("❌ Only staff or ticket creator can close the ticket!", ephemeral=True)
+            return
+        
+        await self.cog.close_ticket(interaction, self.ticket_channel_id)
+
 class TicketSystemENG(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -12,6 +50,10 @@ class TicketSystemENG(commands.Cog):
         self.PARTNERSHIP_ROLE_ID = int(os.getenv('PARTNERSHIP_ROLE_ID', '1408162707575803975'))
         self.SUPPORT_ROLE_ID = int(os.getenv('SUPPORT_ROLE_ID', '1392746082588557383'))
         print("✅ TicketSystemENG inizializzato!")
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print("✅ Sistema Ticket INGLESE caricato!")
 
     async def create_ticket(self, interaction: discord.Interaction, ticket_type: str):
         """Crea un ticket in inglese"""
@@ -83,10 +125,13 @@ class TicketSystemENG(commands.Cog):
             
             ping_message += f"**New {ticket_type} ticket in English** - {member.mention}"
             
+            # USA LA VIEW DEFINITA IN ALTO
+            view = TicketViewENG(self, ticket_channel.id)
+            
             await ticket_channel.send(
                 ping_message,
                 embed=embed, 
-                view=TicketViewENG(self, ticket_channel.id)
+                view=view
             )
             
             await interaction.response.send_message(
@@ -101,7 +146,77 @@ class TicketSystemENG(commands.Cog):
             print(error_msg)
             await interaction.response.send_message(error_msg, ephemeral=True)
 
-    # ... (resto del codice uguale)
+    async def claim_ticket(self, interaction: discord.Interaction, ticket_channel_id: int):
+        """Claim the ticket - only claiming staff can write"""
+        try:
+            ticket_info = self.open_tickets.get(ticket_channel_id)
+            if not ticket_info:
+                await interaction.response.send_message("❌ Ticket not found!", ephemeral=True)
+                return
+            
+            if ticket_info["claimed_by"]:
+                await interaction.response.send_message("❌ Ticket already claimed!", ephemeral=True)
+                return
+            
+            # Update permissions - only claiming staff can write
+            channel = interaction.channel
+            guild = interaction.guild
+            staff_role = guild.get_role(self.STAFF_ROLE_ID)
+            
+            overwrites = channel.overwrites
+            
+            # Staff can only view
+            if staff_role in overwrites:
+                overwrites[staff_role].update(send_messages=False)
+            
+            # Claiming staff can write
+            overwrites[interaction.user] = discord.PermissionOverwrite(
+                view_channel=True,
+                send_messages=True,
+                read_message_history=True
+            )
+            
+            await channel.edit(overwrites=overwrites)
+            
+            # Update ticket info
+            ticket_info["claimed_by"] = interaction.user.id
+            self.open_tickets[ticket_channel_id] = ticket_info
+            
+            embed = discord.Embed(
+                description=f"✅ **Ticket claimed by {interaction.user.mention}**\nNow only the claiming staff can write in this ticket.",
+                color=0x00ff00
+            )
+            
+            await interaction.response.send_message(embed=embed)
+            
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error during claim: {e}", ephemeral=True)
+
+    async def close_ticket(self, interaction: discord.Interaction, ticket_channel_id: int):
+        """Close the ticket with confirmation"""
+        try:
+            ticket_info = self.open_tickets.get(ticket_channel_id)
+            if not ticket_info:
+                await interaction.response.send_message("❌ Ticket not found!", ephemeral=True)
+                return
+            
+            embed = discord.Embed(
+                description="🔒 **Ticket closed**\nThe ticket will be deleted in 10 seconds...",
+                color=0xff0000
+            )
+            
+            await interaction.response.send_message(embed=embed)
+            
+            # Wait and delete
+            await asyncio.sleep(10)
+            await interaction.channel.delete()
+            
+            # Remove from open tickets
+            if ticket_channel_id in self.open_tickets:
+                del self.open_tickets[ticket_channel_id]
+                
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error during closing: {e}", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(TicketSystemENG(bot))
