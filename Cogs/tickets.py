@@ -16,6 +16,15 @@ class TicketSystem(commands.Cog):
 
     @app_commands.command(name="setup_tickets", description="Setup sistema ticket (Admin)")
     @app_commands.default_permissions(administrator=True)
+    # In cogs/tickets.py - assicurati di avere questo metodo:
+async def create_ticket(self, interaction: discord.Interaction, ticket_type: str):
+    """Crea un nuovo ticket"""
+    try:
+        # ... il tuo codice per creare il ticket ...
+        await interaction.response.send_message(f"✅ Ticket {ticket_type} creato!", ephemeral=True)
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Errore: {e}", ephemeral=True)
+        
     async def setup_tickets(self, interaction: discord.Interaction):
         """Setup dei messaggi ticket"""
         await interaction.response.defer(ephemeral=True)
