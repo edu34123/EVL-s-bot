@@ -154,6 +154,7 @@ class TicketSystemITA(commands.Cog):
             print(error_msg)
             await interaction.response.send_message(error_msg, ephemeral=True)
 
+    # MODIFICA: claim_ticket aggiorna anche lo stato dell'embed del ticket!
     async def claim_ticket(self, interaction: discord.Interaction, ticket_channel_id: int):
         """Claim del ticket - solo lo staff che claima può scrivere"""
         try:
@@ -185,6 +186,17 @@ class TicketSystemITA(commands.Cog):
             )
             
             await channel.edit(overwrites=overwrites)
+            
+            # === AGGIUNTA: aggiorna lo stato nell'embed del ticket! ===
+            async for message in channel.history(limit=10):
+                if message.embeds:
+                    embed = message.embeds[0]
+                    if embed.description and "Stato:" in embed.description and "🔓 In attesa di staff" in embed.description:
+                        new_description = embed.description.replace("🔓 In attesa di staff", f"🔐 Claimato da {interaction.user.mention}")
+                        embed.description = new_description
+                        await message.edit(embed=embed)
+                        break
+            # === FINE AGGIUNTA ===
             
             # Aggiorna info ticket
             ticket_info["claimed_by"] = interaction.user.id
