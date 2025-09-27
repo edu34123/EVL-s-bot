@@ -20,7 +20,7 @@ def get_env_var(name, default=None):
 VERIFIED_ROLE_ID = int(get_env_var('VERIFIED_ROLE_ID', 1392128530438951084))
 UNVERIFIED_ROLE_ID = int(get_env_var('UNVERIFIED_ROLE_ID', 1392111556954685450))
 PARTNERSHIP_CHANNEL_ID = int(get_env_var('PARTNERSHIP_CHANNEL_ID', 1411451850485403830))
-TICKET_CHANNEL_ID = int(get_env_var('TICKET_CHANNEL_ID', 1392745580484231260))  # VERIFICA QUESTO ID!
+TICKET_CHANNEL_ID = int(get_env_var('TICKET_CHANNEL_ID', 1392745580484231260))
 
 INVITE_ROLES = {
     1: int(get_env_var('INVITE_ROLE_1_ID', 1392731553221578843)),
@@ -38,19 +38,29 @@ class PersistentTicketView(discord.ui.View):
     
     @discord.ui.button(label="🤝 Partnership", style=discord.ButtonStyle.primary, custom_id="persistent_ticket_partnership")
     async def partnership_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        cog = interaction.client.get_cog('TicketSystem')
-        if cog:
-            await cog.create_ticket(interaction, "partnership")
+        # Prova prima il modulo ticket italiano, poi inglese
+        cog_ita = interaction.client.get_cog('TicketSystemITA')
+        cog_eng = interaction.client.get_cog('TicketSystemENG')
+        
+        if cog_ita:
+            await cog_ita.create_ticket(interaction, "partnership")
+        elif cog_eng:
+            await cog_eng.create_ticket(interaction, "partnership")
         else:
-            await interaction.response.send_message("❌ Sistema ticket non caricato. Contatta l'admin.", ephemeral=True)
+            await interaction.response.send_message("❌ Nessun sistema ticket caricato. Contatta l'admin.", ephemeral=True)
     
     @discord.ui.button(label="🛠️ Supporto", style=discord.ButtonStyle.secondary, custom_id="persistent_ticket_support")
     async def support_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        cog = interaction.client.get_cog('TicketSystem')
-        if cog:
-            await cog.create_ticket(interaction, "support")
+        # Prova prima il modulo ticket italiano, poi inglese
+        cog_ita = interaction.client.get_cog('TicketSystemITA')
+        cog_eng = interaction.client.get_cog('TicketSystemENG')
+        
+        if cog_ita:
+            await cog_ita.create_ticket(interaction, "support")
+        elif cog_eng:
+            await cog_eng.create_ticket(interaction, "support")
         else:
-            await interaction.response.send_message("❌ Sistema ticket non caricato. Contatta l'admin.", ephemeral=True)
+            await interaction.response.send_message("❌ Nessun sistema ticket caricato. Contatta l'admin.", ephemeral=True)
 
 class MyBot(commands.Bot):
     def __init__(self):
@@ -61,43 +71,71 @@ class MyBot(commands.Bot):
         print(f"🎯 Canale ticket configurato: {self.ticket_channel_id}")
 
     async def setup_hook(self):
-        # DEBUG: mostra struttura file
-        print("=== STRUTTURA FILE ===")
-        try:
-            items = os.listdir('.')
-            for item in items:
-                print(f"📁 {item}")
-        except Exception as e:
-            print(f"❌ Errore lista file: {e}")
+        print("=== CARICAMENTO MODULI TICKET ===")
         
-        # CARICA TUTTI I COG COMPRESO TICKETS
-        cogs_loaded = False
+        # LISTA DI TUTTI I MODULI TICKET CHE DEVI AVERE
+        ticket_modules = [
+            'cogs.tickets_ita',    # Modulo ticket italiano
+            'cogs.tickets_eng',    # Modulo ticket inglese
+            'cogs.tickets',        # Modulo ticket generico (backup)
+            'tickets_ita',         # Nomi diretti
+            'tickets_eng',
+            'tickets'
+        ]
         
-        # Prova a caricare dalla cartella cogs
-        cogs_path = './cogs'
-        if os.path.exists(cogs_path):
-            print(f"✅ Cartella {cogs_path} trovata!")
-            for filename in os.listdir(cogs_path):
-                if filename.endswith('.py') and filename != '__init__.py':
-                    try:
-                        cog_name = f"cogs.{filename[:-3]}"
-                        await self.load_extension(cog_name)
-                        print(f"✅ Caricato: {cog_name}")
-                        cogs_loaded = True
-                    except Exception as e:
-                        print(f"❌ Errore caricamento {filename}: {e}")
+        # AGGIUNGI ANCHE TUTTI GLI ALTRI COG
+        all_modules = [
+            'cogs.verification',
+            'cogs.fun', 
+            'cogs.partnership',
+            'cogs.moderation',
+            'cogs.leveling',
+            'cogs.invite_tracker',
+            'cogs.klubs'
+        ] + ticket_modules
         
-        # Se non caricati, prova manualmente
-        if not cogs_loaded:
-            print("❌ Nessun cog caricato dalla cartella! Provo manualmente...")
-            cog_names = ['fun', 'verification', 'tickets', 'partnership', 'moderation', 'leveling', 'invite_tracker', 'klubs']
-            for cog_name in cog_names:
-                try:
-                    await self.load_extension(cog_name)
-                    print(f"✅ Caricato: {cog_name}")
-                    cogs_loaded = True
-                except Exception as e:
-                    print(f"❌ Errore {cog_name}: {e}")
+        print("🔄 Tentativo di caricamento moduli...")
+        
+        modules_loaded = []
+        modules_failed = []
+        
+        for module_name in all_modules:
+            try:
+                await self.load_extension(module_name)
+                modules_loaded.append(module_name)
+                print(f"✅ Caricato: {module_name}")
+            except Exception as e:
+                modules_failed.append(f"{module_name}: {e}")
+        
+        print(f"\n📊 RIEPILOGO CARICAMENTO:")
+        print(f"✅ Moduli caricati: {len(modules_loaded)}")
+        print(f"❌ Moduli falliti: {len(modules_failed)}")
+        
+        if modules_loaded:
+            print("📦 Moduli caricati con successo:")
+            for module in modules_loaded:
+                print(f"   - {module}")
+        
+        if modules_failed:
+            print("⚠️ Moduli non caricati:")
+            for error in modules_failed:
+                print(f"   - {error}")
+        
+        # VERIFICA SPECIFICA DEI MODULI TICKET
+        print("\n🎯 VERIFICA MODULI TICKET:")
+        ticket_cogs = []
+        for cog_name in ['TicketSystemITA', 'TicketSystemENG', 'TicketSystem']:
+            cog = self.get_cog(cog_name)
+            if cog:
+                ticket_cogs.append(cog_name)
+                print(f"✅ Trovato: {cog_name}")
+            else:
+                print(f"❌ Non trovato: {cog_name}")
+        
+        if not ticket_cogs:
+            print("🚨 CRITICO: Nessun modulo ticket caricato!")
+        else:
+            print(f"✅ Moduli ticket attivi: {', '.join(ticket_cogs)}")
         
         # AGGIUNGI LA VIEW PERSISTENTE PER I TICKET
         self.add_view(PersistentTicketView())
@@ -142,56 +180,41 @@ class MyBot(commands.Bot):
 
     async def setup_ticket_messages(self):
         """Invia automaticamente i messaggi dei ticket quando il bot si avvia"""
-        print("🔄 Setup automatico messaggi ticket...")
-        print(f"🎯 Cerco canale con ID: {self.ticket_channel_id}")
+        print("🔄 Setup messaggi ticket...")
         
         for guild in self.guilds:
             try:
                 channel = guild.get_channel(self.ticket_channel_id)
                 if not channel:
-                    print(f"❌ Canale ticket {self.ticket_channel_id} NON TROVATO in {guild.name}!")
-                    print(f"📋 Canali disponibili in {guild.name}:")
-                    for ch in guild.channels:
-                        print(f"   - #{ch.name} (ID: {ch.id})")
-                    continue
-                
-                print(f"✅ Trovato canale ticket: #{channel.name} (ID: {channel.id}) in {guild.name}")
-                
-                # ⚠️ IMPORTANTE: CONFERMA PRIMA DI CANCELLARE!
-                print(f"🔒 SICUREZZA: Sto per lavorare sul canale #{channel.name}")
-                confirm = input("⚠️  Sei sicuro di voler procedere? (si/no): ")
-                if confirm.lower() != 'si':
-                    print("❌ Operazione annullata dall'utente")
+                    print(f"❌ Canale ticket {self.ticket_channel_id} non trovato!")
                     return
                 
-                # Pulisci SOLO i messaggi del bot che contengono "ticket"
+                print(f"✅ Canale ticket: #{channel.name} (ID: {channel.id})")
+                
+                # Pulisci SOLO i messaggi ticket del bot
                 try:
                     deleted_count = 0
-                    async for message in channel.history(limit=50):
-                        # Cancella SOLO se è del bot e contiene "ticket" nel contenuto o negli embed
+                    async for message in channel.history(limit=30):
                         if message.author == self.user:
-                            should_delete = False
+                            is_ticket_message = False
                             
-                            # Controlla il contenuto del messaggio
-                            if message.content and any(word in message.content.lower() for word in ['ticket', '🎫']):
-                                should_delete = True
-                            
-                            # Controlla il titolo degli embed
+                            # Controlla se è un messaggio ticket
+                            if message.content and 'ticket' in message.content.lower():
+                                is_ticket_message = True
                             for embed in message.embeds:
-                                if embed.title and any(word in embed.title.lower() for word in ['ticket', '🎫']):
-                                    should_delete = True
+                                if embed.title and 'ticket' in embed.title.lower():
+                                    is_ticket_message = True
                                     break
                             
-                            if should_delete:
+                            if is_ticket_message:
                                 await message.delete()
                                 deleted_count += 1
                                 await asyncio.sleep(0.5)
-                                print(f"🗑️ Cancellato messaggio ticket: {message.id}")
                     
-                    print(f"🧹 Cancellati {deleted_count} messaggi ticket vecchi del bot")
+                    print(f"🧹 Cancellati {deleted_count} messaggi ticket vecchi")
                     
                 except Exception as e:
-                    print(f"⚠️ Errore durante la pulizia: {e}")
+                    print(f"⚠️ Errore pulizia: {e}")
                 
                 await asyncio.sleep(2)
                 
@@ -208,12 +231,6 @@ class MyBot(commands.Bot):
                     inline=False
                 )
                 
-                embed_ita.add_field(
-                    name="📜 Regole Ticket",
-                    value="• Non taggare lo staff, verranno automaticamente notificati\n• Il ticket verrà chiuso dopo 24h di inattività\n• Sii chiaro e conciso nella tua richiesta\n• Rispetta lo staff e le sue decisioni",
-                    inline=False
-                )
-                
                 # EMBED INGLESE
                 embed_eng = discord.Embed(
                     title="🎫 TICKET SYSTEM - ENGLISH 🇬🇧",
@@ -227,24 +244,17 @@ class MyBot(commands.Bot):
                     inline=False
                 )
                 
-                embed_eng.add_field(
-                    name="📜 Ticket Rules",
-                    value="• Don't ping staff, they will be automatically notified\n• Ticket will be closed after 24h of inactivity\n• Be clear and concise in your request\n• Respect staff and their decisions",
-                    inline=False
-                )
-                
                 # Usa la view persistente
                 view = PersistentTicketView()
                 
                 # Invia i messaggi
-                msg1 = await channel.send(embed=embed_ita, view=view)
-                msg2 = await channel.send(embed=embed_eng, view=view)
+                await channel.send(embed=embed_ita, view=view)
+                await channel.send(embed=embed_eng, view=view)
                 
-                print(f"✅ Messaggi ticket inviati in #{channel.name}")
-                print(f"📝 ID Messaggi: {msg1.id}, {msg2.id}")
+                print("✅ Messaggi ticket inviati!")
                 
             except Exception as e:
-                print(f"❌ Errore durante l'invio dei messaggi ticket in {guild.name}: {e}")
+                print(f"❌ Errore: {e}")
 
 bot = MyBot()
 
@@ -253,86 +263,56 @@ async def on_ready():
     print(f'✅ {bot.user} è online!')
     print(f'✅ ID Bot: {bot.user.id}')
     
-    # Verifica se il cog TicketSystem è caricato
-    ticket_cog = bot.get_cog('TicketSystem')
-    if ticket_cog:
-        print("✅ Cog TicketSystem caricato correttamente!")
-    else:
-        print("❌ Cog TicketSystem NON caricato!")
+    # VERIFICA DETTAGLIATA DEI MODULI TICKET
+    print("\n🔍 STATO MODULI TICKET:")
+    for cog_name in ['TicketSystemITA', 'TicketSystemENG', 'TicketSystem']:
+        cog = bot.get_cog(cog_name)
+        if cog:
+            print(f"✅ {cog_name} - CARICATO")
+        else:
+            print(f"❌ {cog_name} - NON CARICATO")
     
     commands_count = len(bot.tree.get_commands())
-    print(f'✅ Comandi registrati nel bot: {commands_count}')
+    print(f'✅ Comandi registrati: {commands_count}')
     
-    # ⚠️ DISABILITA L'INVIO AUTOMATICO PER EVITARE DANNI
-    print("🔒 Invio automatico ticket DISABILITATO per sicurezza")
-    # await bot.setup_ticket_messages()  # COMMENTATO!
+    # Invio messaggi ticket (SICURO)
+    await bot.setup_ticket_messages()
     
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="My Community and helping you with /help 👀"))
 
-# Comando per risincronizzare manualmente
-@bot.tree.command(name="sync", description="Risincronizza i comandi (solo admin)")
-async def sync(interaction: discord.Interaction):
+# Comando per verificare lo stato dei moduli
+@bot.tree.command(name="ticket_status", description="Verifica lo stato dei moduli ticket (Admin)")
+async def ticket_status(interaction: discord.Interaction):
     if interaction.user.guild_permissions.administrator:
-        try:
-            synced = await bot.tree.sync()
-            await interaction.response.send_message(f"✅ Sincronizzati {len(synced)} comandi!", ephemeral=True)
-        except Exception as e:
-            await interaction.response.send_message(f"❌ Errore: {e}", ephemeral=True)
+        embed = discord.Embed(title="🔍 STATO MODULI TICKET", color=0x0099ff)
+        
+        status_text = ""
+        for cog_name in ['TicketSystemITA', 'TicketSystemENG', 'TicketSystem']:
+            cog = interaction.client.get_cog(cog_name)
+            status = "✅ CARICATO" if cog else "❌ NON CARICATO"
+            status_text += f"**{cog_name}**: {status}\n"
+        
+        embed.description = status_text
+        await interaction.response.send_message(embed=embed, ephemeral=True)
     else:
-        await interaction.response.send_message("❌ Non hai i permessi per questo comando!", ephemeral=True)
+        await interaction.response.send_message("❌ Non hai i permessi!", ephemeral=True)
 
-# Comando per re-inviare i messaggi ticket (SICURO)
 @bot.tree.command(name="setup_tickets", description="Re-invia i messaggi dei ticket (Admin)")
 async def setup_tickets_cmd(interaction: discord.Interaction):
     if interaction.user.guild_permissions.administrator:
-        # ⚠️ CONFERMA DI SICUREZZA
-        embed = discord.Embed(
-            title="⚠️ CONFERMA SICUREZZA",
-            description="**Questo comando cancellerà i vecchi messaggi ticket del bot nel canale specificato.**\n\n**Sei sicuro di voler procedere?**",
-            color=0xff0000
-        )
-        embed.add_field(name="Canale target", value=f"<#{bot.ticket_channel_id}>", inline=False)
-        embed.add_field(name="Azioni", value="• Cancella messaggi ticket vecchi del bot\n• Invia nuovi messaggi ticket", inline=False)
-        
-        class ConfirmView(discord.ui.View):
-            def __init__(self):
-                super().__init__(timeout=60)
-            
-            @discord.ui.button(label="✅ Conferma", style=discord.ButtonStyle.danger)
-            async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-                await interaction.response.defer(ephemeral=True)
-                try:
-                    await bot.setup_ticket_messages()
-                    await interaction.followup.send("✅ Messaggi ticket re-inviati con sicurezza!", ephemeral=True)
-                except Exception as e:
-                    await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
-            
-            @discord.ui.button(label="❌ Annulla", style=discord.ButtonStyle.secondary)
-            async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-                await interaction.response.send_message("❌ Operazione annullata.", ephemeral=True)
-        
-        await interaction.response.send_message(embed=embed, view=ConfirmView(), ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        try:
+            await bot.setup_ticket_messages()
+            await interaction.followup.send("✅ Messaggi ticket re-inviati!", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
     else:
-        await interaction.response.send_message("❌ Non hai i permessi per questo comando!", ephemeral=True)
-
-@bot.tree.command(name="help", description="Mostra tutti i comandi disponibili")
-async def help_command(interaction: discord.Interaction):
-    commands_list = []
-    for command in bot.tree.get_commands():
-        commands_list.append(f"**/{command.name}** - {command.description}")
-    
-    embed = discord.Embed(title="🤖 Comandi di EVL's Bot", color=0x00ff00)
-    embed.description = "\n".join(commands_list) if commands_list else "Nessun comando caricato 😢\nUsa `/sync` per aggiornare i comandi (solo admin)"
-    embed.set_footer(text="EVL's Community Bot")
-    
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message("❌ Non hai i permessi!", ephemeral=True)
 
 if __name__ == "__main__":
     token = os.getenv('DISCORD_TOKEN')
     if token:
         print("✅ Token Discord trovato, avvio bot...")
-        print("🔒 MODALITÀ SICURA ATTIVA - Nessuna cancellazione automatica")
         bot.run(token)
     else:
         print("❌ Token Discord non trovato!")
-
