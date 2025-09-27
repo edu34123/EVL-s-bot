@@ -20,7 +20,7 @@ def get_env_var(name, default=None):
 VERIFIED_ROLE_ID = int(get_env_var('VERIFIED_ROLE_ID', 1392128530438951084))
 UNVERIFIED_ROLE_ID = int(get_env_var('UNVERIFIED_ROLE_ID', 1392111556954685450))
 PARTNERSHIP_CHANNEL_ID = int(get_env_var('PARTNERSHIP_CHANNEL_ID', 1411451850485403830))
-TICKET_CHANNEL_ID = int(get_env_var('TICKET_CHANNEL_ID', 1411451850485403830))
+TICKET_CHANNEL_ID = int(get_env_var('TICKET_CHANNEL_ID', 1411451850485403830))  # VERIFICA QUESTO ID!
 
 INVITE_ROLES = {
     1: int(get_env_var('INVITE_ROLE_1_ID', 1392731553221578843)),
@@ -58,6 +58,7 @@ class MyBot(commands.Bot):
         intents.message_content = True
         super().__init__(command_prefix='>', intents=intents, help_command=None)
         self.ticket_channel_id = TICKET_CHANNEL_ID
+        print(f"🎯 Canale ticket configurato: {self.ticket_channel_id}")
 
     async def setup_hook(self):
         # DEBUG: mostra struttura file
@@ -66,14 +67,6 @@ class MyBot(commands.Bot):
             items = os.listdir('.')
             for item in items:
                 print(f"📁 {item}")
-                
-                if os.path.isdir(item):
-                    try:
-                        subitems = os.listdir(item)
-                        for subitem in subitems:
-                            print(f"  📄 {subitem}")
-                    except Exception as e:
-                        print(f"  ❌ Errore leggendo {item}: {e}")
         except Exception as e:
             print(f"❌ Errore lista file: {e}")
         
@@ -150,27 +143,53 @@ class MyBot(commands.Bot):
     async def setup_ticket_messages(self):
         """Invia automaticamente i messaggi dei ticket quando il bot si avvia"""
         print("🔄 Setup automatico messaggi ticket...")
+        print(f"🎯 Cerco canale con ID: {self.ticket_channel_id}")
         
         for guild in self.guilds:
             try:
                 channel = guild.get_channel(self.ticket_channel_id)
                 if not channel:
-                    print(f"❌ Canale ticket {self.ticket_channel_id} non trovato in {guild.name}")
+                    print(f"❌ Canale ticket {self.ticket_channel_id} NON TROVATO in {guild.name}!")
+                    print(f"📋 Canali disponibili in {guild.name}:")
+                    for ch in guild.channels:
+                        print(f"   - #{ch.name} (ID: {ch.id})")
                     continue
                 
-                print(f"✅ Trovato canale ticket: #{channel.name} in {guild.name}")
+                print(f"✅ Trovato canale ticket: #{channel.name} (ID: {channel.id}) in {guild.name}")
                 
-                # Pulisci SOLO i vecchi messaggi ticket del bot
+                # ⚠️ IMPORTANTE: CONFERMA PRIMA DI CANCELLARE!
+                print(f"🔒 SICUREZZA: Sto per lavorare sul canale #{channel.name}")
+                confirm = input("⚠️  Sei sicuro di voler procedere? (si/no): ")
+                if confirm.lower() != 'si':
+                    print("❌ Operazione annullata dall'utente")
+                    return
+                
+                # Pulisci SOLO i messaggi del bot che contengono "ticket"
                 try:
                     deleted_count = 0
-                    async for message in channel.history(limit=30):
-                        if (message.author == self.user and 
-                            any(keyword in message.content.lower() for keyword in ['ticket', 'partnership', 'support']) or
-                            any(embed.title and any(word in embed.title.lower() for word in ['ticket', 'partnership', 'support']) for embed in message.embeds)):
-                            await message.delete()
-                            deleted_count += 1
-                            await asyncio.sleep(0.5)
-                    print(f"🧹 Cancellati {deleted_count} messaggi ticket vecchi")
+                    async for message in channel.history(limit=50):
+                        # Cancella SOLO se è del bot e contiene "ticket" nel contenuto o negli embed
+                        if message.author == self.user:
+                            should_delete = False
+                            
+                            # Controlla il contenuto del messaggio
+                            if message.content and any(word in message.content.lower() for word in ['ticket', '🎫']):
+                                should_delete = True
+                            
+                            # Controlla il titolo degli embed
+                            for embed in message.embeds:
+                                if embed.title and any(word in embed.title.lower() for word in ['ticket', '🎫']):
+                                    should_delete = True
+                                    break
+                            
+                            if should_delete:
+                                await message.delete()
+                                deleted_count += 1
+                                await asyncio.sleep(0.5)
+                                print(f"🗑️ Cancellato messaggio ticket: {message.id}")
+                    
+                    print(f"🧹 Cancellati {deleted_count} messaggi ticket vecchi del bot")
+                    
                 except Exception as e:
                     print(f"⚠️ Errore durante la pulizia: {e}")
                 
@@ -244,9 +263,9 @@ async def on_ready():
     commands_count = len(bot.tree.get_commands())
     print(f'✅ Comandi registrati nel bot: {commands_count}')
     
-    # Aspetta che tutto sia pronto, poi invia i messaggi ticket
-    await asyncio.sleep(5)
-    await bot.setup_ticket_messages()
+    # ⚠️ DISABILITA L'INVIO AUTOMATICO PER EVITARE DANNI
+    print("🔒 Invio automatico ticket DISABILITATO per sicurezza")
+    # await bot.setup_ticket_messages()  # COMMENTATO!
     
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="My Community and helping you with /help 👀"))
 
@@ -262,16 +281,37 @@ async def sync(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("❌ Non hai i permessi per questo comando!", ephemeral=True)
 
-# Comando per re-inviare i messaggi ticket
+# Comando per re-inviare i messaggi ticket (SICURO)
 @bot.tree.command(name="setup_tickets", description="Re-invia i messaggi dei ticket (Admin)")
 async def setup_tickets_cmd(interaction: discord.Interaction):
     if interaction.user.guild_permissions.administrator:
-        await interaction.response.defer(ephemeral=True)
-        try:
-            await bot.setup_ticket_messages()
-            await interaction.followup.send("✅ Messaggi ticket re-inviati!", ephemeral=True)
-        except Exception as e:
-            await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
+        # ⚠️ CONFERMA DI SICUREZZA
+        embed = discord.Embed(
+            title="⚠️ CONFERMA SICUREZZA",
+            description="**Questo comando cancellerà i vecchi messaggi ticket del bot nel canale specificato.**\n\n**Sei sicuro di voler procedere?**",
+            color=0xff0000
+        )
+        embed.add_field(name="Canale target", value=f"<#{bot.ticket_channel_id}>", inline=False)
+        embed.add_field(name="Azioni", value="• Cancella messaggi ticket vecchi del bot\n• Invia nuovi messaggi ticket", inline=False)
+        
+        class ConfirmView(discord.ui.View):
+            def __init__(self):
+                super().__init__(timeout=60)
+            
+            @discord.ui.button(label="✅ Conferma", style=discord.ButtonStyle.danger)
+            async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await interaction.response.defer(ephemeral=True)
+                try:
+                    await bot.setup_ticket_messages()
+                    await interaction.followup.send("✅ Messaggi ticket re-inviati con sicurezza!", ephemeral=True)
+                except Exception as e:
+                    await interaction.followup.send(f"❌ Errore: {e}", ephemeral=True)
+            
+            @discord.ui.button(label="❌ Annulla", style=discord.ButtonStyle.secondary)
+            async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await interaction.response.send_message("❌ Operazione annullata.", ephemeral=True)
+        
+        await interaction.response.send_message(embed=embed, view=ConfirmView(), ephemeral=True)
     else:
         await interaction.response.send_message("❌ Non hai i permessi per questo comando!", ephemeral=True)
 
@@ -291,6 +331,7 @@ if __name__ == "__main__":
     token = os.getenv('DISCORD_TOKEN')
     if token:
         print("✅ Token Discord trovato, avvio bot...")
+        print("🔒 MODALITÀ SICURA ATTIVA - Nessuna cancellazione automatica")
         bot.run(token)
     else:
         print("❌ Token Discord non trovato!")
