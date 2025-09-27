@@ -56,8 +56,13 @@ class TicketSystemENG(commands.Cog):
         print("✅ Sistema Ticket INGLESE caricato!")
 
     async def create_ticket(self, interaction: discord.Interaction, ticket_type: str):
-        """Crea un ticket in inglese"""
+        """Crea un ticket in inglese - VERSIONE CORRETTA"""
         try:
+            # CONTROLLO PER EVITARE DOPPIA CREAZIONE
+            if interaction.response.is_done():
+                print("⚠️ Interaction già risposta, evito doppia creazione")
+                return
+                
             guild = interaction.guild
             member = interaction.user
             
@@ -95,11 +100,13 @@ class TicketSystemENG(commands.Cog):
                 overwrites=overwrites
             )
             
+            # Salva info ticket
             self.open_tickets[ticket_channel.id] = {
                 "owner": member.id,
                 "type": ticket_type,
                 "claimed_by": None,
-                "language": "eng"
+                "language": "eng",
+                "message_id": None  # Aggiungi per memorizzare l'ID del messaggio
             }
             
             # RUOLO DA TAGGARE
@@ -118,6 +125,18 @@ class TicketSystemENG(commands.Cog):
                 description=f"**Opened by:** {member.mention}\n**Type:** {ticket_type.capitalize()}\n**Language:** 🇬🇧 English\n**Status:** 🔓 Waiting for staff"
             )
             
+            embed.add_field(
+                name="📜 Ticket Rules",
+                value="• Don't ping staff, they will be notified automatically\n• Ticket closed after 24h inactivity\n• Be clear and concise",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="🎯 Available Actions",
+                value="• **Claim** - Take over the ticket\n• **Close** - Close the ticket",
+                inline=False
+            )
+            
             # MESSAGGIO DI PING CORRETTO
             ping_message = ""
             if role_to_ping:
@@ -128,11 +147,15 @@ class TicketSystemENG(commands.Cog):
             # USA LA VIEW DEFINITA IN ALTO
             view = TicketViewENG(self, ticket_channel.id)
             
-            await ticket_channel.send(
+            # Invia il messaggio e salva l'ID
+            sent_message = await ticket_channel.send(
                 ping_message,
                 embed=embed, 
                 view=view
             )
+            
+            # Salva l'ID del messaggio per futuri aggiornamenti
+            self.open_tickets[ticket_channel.id]["message_id"] = sent_message.id
             
             await interaction.response.send_message(
                 f"✅ English ticket created! Go to {ticket_channel.mention}",
@@ -144,7 +167,8 @@ class TicketSystemENG(commands.Cog):
         except Exception as e:
             error_msg = f"❌ Error creating ENG ticket: {str(e)}"
             print(error_msg)
-            await interaction.response.send_message(error_msg, ephemeral=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(error_msg, ephemeral=True)
 
     async def claim_ticket(self, interaction: discord.Interaction, ticket_channel_id: int):
         """Claim the ticket - only claiming staff can write"""
@@ -181,6 +205,20 @@ class TicketSystemENG(commands.Cog):
             # Update ticket info
             ticket_info["claimed_by"] = interaction.user.id
             self.open_tickets[ticket_channel_id] = ticket_info
+            
+            # AGGIORNA L'EMBED CON LO STATO CLAIMATO
+            if ticket_info["message_id"]:
+                try:
+                    message = await channel.fetch_message(ticket_info["message_id"])
+                    if message.embeds:
+                        embed = message.embeds[0]
+                        # Aggiorna lo stato nell'embed
+                        new_description = embed.description.replace("🔓 Waiting for staff", f"🔐 Claimed by {interaction.user.mention}")
+                        embed.description = new_description
+                        await message.edit(embed=embed)
+                        print("✅ Stato ticket aggiornato a 'Claimed'")
+                except Exception as e:
+                    print(f"⚠️ Errore aggiornamento embed: {e}")
             
             embed = discord.Embed(
                 description=f"✅ **Ticket claimed by {interaction.user.mention}**\nNow only the claiming staff can write in this ticket.",
