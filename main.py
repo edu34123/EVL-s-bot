@@ -32,63 +32,47 @@ INVITE_ROLES = {
     100: int(get_env_var('INVITE_ROLE_100_ID', 1392731616060772424))
 }
 
-# VIEW PER ITALIANO
+# VIEW PER ITALIANO - SOLO ITALIANO
 class TicketCreationViewITA(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
     
     @discord.ui.button(label="🤝 Partnership", style=discord.ButtonStyle.primary, custom_id="ticket_ita_partnership")
     async def partnership_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.create_ticket_ita(interaction, "partnership")
+        cog_ita = interaction.client.get_cog('TicketSystemITA')
+        if cog_ita:
+            await cog_ita.create_ticket(interaction, "partnership")
+        else:
+            await interaction.response.send_message("❌ Sistema ticket italiano non disponibile", ephemeral=True)
     
     @discord.ui.button(label="🛠️ Supporto", style=discord.ButtonStyle.secondary, custom_id="ticket_ita_support")
     async def support_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.create_ticket_ita(interaction, "support")
-    
-    async def create_ticket_ita(self, interaction: discord.Interaction, ticket_type: str):
-        """Crea ticket ITALIANO"""
-        try:
-            cog_ita = interaction.client.get_cog('TicketSystemITA')
-            
-            if cog_ita:
-                print(f"🎯 Creazione ticket ITALIANO per {interaction.user.display_name}")
-                await cog_ita.create_ticket(interaction, ticket_type)
-            else:
-                await interaction.response.send_message("❌ Sistema ticket italiano non disponibile", ephemeral=True)
-                
-        except Exception as e:
-            error_msg = f"❌ Errore creazione ticket ITA: {str(e)}"
-            print(error_msg)
-            await interaction.response.send_message(error_msg, ephemeral=True)
+        cog_ita = interaction.client.get_cog('TicketSystemITA')
+        if cog_ita:
+            await cog_ita.create_ticket(interaction, "support")
+        else:
+            await interaction.response.send_message("❌ Sistema ticket italiano non disponibile", ephemeral=True)
 
-# VIEW PER INGLESE
+# VIEW PER INGLESE - SOLO INGLESE
 class TicketCreationViewENG(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
     
     @discord.ui.button(label="🤝 Partnership", style=discord.ButtonStyle.primary, custom_id="ticket_eng_partnership")
     async def partnership_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.create_ticket_eng(interaction, "partnership")
+        cog_eng = interaction.client.get_cog('TicketSystemENG')
+        if cog_eng:
+            await cog_eng.create_ticket(interaction, "partnership")
+        else:
+            await interaction.response.send_message("❌ Sistema ticket inglese non disponibile", ephemeral=True)
     
     @discord.ui.button(label="🛠️ Support", style=discord.ButtonStyle.secondary, custom_id="ticket_eng_support")
     async def support_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.create_ticket_eng(interaction, "support")
-    
-    async def create_ticket_eng(self, interaction: discord.Interaction, ticket_type: str):
-        """Crea ticket INGLESE"""
-        try:
-            cog_eng = interaction.client.get_cog('TicketSystemENG')
-            
-            if cog_eng:
-                print(f"🎯 Creazione ticket INGLESE per {interaction.user.display_name}")
-                await cog_eng.create_ticket(interaction, ticket_type)
-            else:
-                await interaction.response.send_message("❌ Sistema ticket inglese non disponibile", ephemeral=True)
-                
-        except Exception as e:
-            error_msg = f"❌ Errore creazione ticket ENG: {str(e)}"
-            print(error_msg)
-            await interaction.response.send_message(error_msg, ephemeral=True)
+        cog_eng = interaction.client.get_cog('TicketSystemENG')
+        if cog_eng:
+            await cog_eng.create_ticket(interaction, "support")
+        else:
+            await interaction.response.send_message("❌ Sistema ticket inglese non disponibile", ephemeral=True)
 
 class MyBot(commands.Bot):
     def __init__(self):
@@ -372,4 +356,3 @@ if __name__ == "__main__":
         bot.run(token)
     else:
         print("❌ Token Discord non trovato!")
-
