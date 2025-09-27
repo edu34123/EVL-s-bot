@@ -8,7 +8,7 @@ class TicketSystemITA(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.open_tickets = {}
-        self.STAFF_ROLE_ID = int(os.getenv('STAFF_ROLE_ID', '1400000000000000003'))
+        self.STAFF_ROLE_ID = int(os.getenv('STAFF_ROLE_ID', '1394357096295956580'))
         print("✅ TicketSystemITA inizializzato!")
 
     @commands.Cog.listener()
@@ -199,7 +199,7 @@ class TicketViewITA(discord.ui.View):
             await interaction.response.send_message("❌ Ticket non trovato!", ephemeral=True)
             return
         
-        staff_role_id = int(os.getenv('STAFF_ROLE_ID', '1400000000000000003'))
+        staff_role_id = int(os.getenv('STAFF_ROLE_ID', '1394357096295956580'))
         staff_role = interaction.guild.get_role(staff_role_id)
         
         is_staff = staff_role and staff_role in interaction.user.roles
