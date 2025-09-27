@@ -10,7 +10,7 @@ class VerificationSystem(commands.Cog):
         
         # Configurazione
         self.RULES_CHANNEL_ID = int(os.getenv('RULES_CHANNEL_ID', '1392062840097210478'))
-        self.ITALIAN_RULES_CHANNEL_ID = int(os.getenv('ITALIAN_RULES_CHANNEL_ID', '1392062840097210478'))
+        self.ITALIAN_RULES_CHANNEL_ID = int(os.getenv('ITALIAN_RULES_CHANNEL_ID', '1420636068319068160'))
         self.VERIFY_CHANNEL_ID = int(os.getenv('VERIFY_CHANNEL_ID', '1392062838197059644'))
         
         # Ruoli
@@ -358,3 +358,4 @@ class VerifyButton(discord.ui.Button):
 
 async def setup(bot):
     await bot.add_cog(VerificationSystem(bot))
+
