@@ -8,10 +8,10 @@ class VerificationSystem(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         
-        # Configurazione
-        self.RULES_CHANNEL_ID = int(os.getenv('RULES_CHANNEL_ID', '1392062840097210478'))
-        self.ITALIAN_RULES_CHANNEL_ID = int(os.getenv('ITALIAN_RULES_CHANNEL_ID', '1420636068319068160'))
-        self.VERIFY_CHANNEL_ID = int(os.getenv('VERIFY_CHANNEL_ID', '1392062838197059644'))
+        # Configurazione - IMPORTANTE: usa ID DIVERSI per i due canali!
+        self.RULES_CHANNEL_ID = int(os.getenv('RULES_CHANNEL_ID', '1392062840097210478'))  # Canale regole inglese
+        self.ITALIAN_RULES_CHANNEL_ID = int(os.getenv('ITALIAN_RULES_CHANNEL_ID', '1392062838197059644'))  # Canale regole italiano (DIVERSO!)
+        self.VERIFY_CHANNEL_ID = int(os.getenv('VERIFY_CHANNEL_ID', '1392062838197059644'))  # Canale verifica
         
         # Ruoli
         self.UNVERIFIED_ROLE_ID = int(os.getenv('UNVERIFIED_ROLE_ID', '1392111556954685450'))
@@ -21,6 +21,57 @@ class VerificationSystem(commands.Cog):
         self.FAN_ROLE_ID = int(os.getenv('FAN_ROLE_ID', '1392128530438951084'))
         
         self.verification_setup_done = False
+
+    async def complete_verification(self, interaction: discord.Interaction, language: str):
+        """Completa la verifica e assegna i ruoli"""
+        try:
+            guild = interaction.guild
+            member = interaction.user
+            
+            # Rimuovi ruolo non verificato e aggiungi ruolo verificato
+            unverified_role = guild.get_role(self.UNVERIFIED_ROLE_ID)
+            verified_role = guild.get_role(self.VERIFIED_ROLE_ID)
+            
+            if unverified_role and unverified_role in member.roles:
+                await member.remove_roles(unverified_role)
+            
+            if verified_role and verified_role not in member.roles:
+                await member.add_roles(verified_role)
+            
+            # Assegna ruolo lingua
+            if language == "ita":
+                ita_role = guild.get_role(self.ITA_ROLE_ID)
+                eng_role = guild.get_role(self.ENG_ROLE_ID)
+                
+                if ita_role and ita_role not in member.roles:
+                    await member.add_roles(ita_role)
+                if eng_role and eng_role in member.roles:
+                    await member.remove_roles(eng_role)
+                
+                message = "✅ Verifica completata! Sezione Italiana attivata. Benvenuto! 🎉"
+            else:
+                eng_role = guild.get_role(self.ENG_ROLE_ID)
+                ita_role = guild.get_role(self.ITA_ROLE_ID)
+                
+                if eng_role and eng_role not in member.roles:
+                    await member.add_roles(eng_role)
+                if ita_role and ita_role in member.roles:
+                    await member.remove_roles(ita_role)
+                
+                message = "✅ Verification completed! English Section activated. Welcome! 🎉"
+            
+            embed = discord.Embed(description=message, color=0x00ff00)
+            await interaction.response.edit_message(embed=embed, view=None)
+            
+            print(f"✅ Verifica completata per {member.display_name} ({language})")
+            
+        except Exception as e:
+            error_embed = discord.Embed(
+                description="❌ Errore durante la verifica. Contatta lo staff.",
+                color=0xff0000
+            )
+            await interaction.response.edit_message(embed=error_embed, view=None)
+            print(f"❌ Errore verifica per {interaction.user.display_name}: {e}")
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -39,7 +90,7 @@ class VerificationSystem(commands.Cog):
         print("🔄 AVVIO SETUP AUTOMATICO DEL SISTEMA DI VERIFICA...")
         
         try:
-            # 1. PRIMA invia il REGOLAMENTO ITALIANO
+            # 1. PRIMA invia il REGOLAMENTO ITALIANO (in canale italiano)
             if self.ITALIAN_RULES_CHANNEL_ID != 0:
                 print("📜 Invio regolamento italiano...")
                 await self.send_italian_rules()
@@ -47,13 +98,13 @@ class VerificationSystem(commands.Cog):
             else:
                 print("❌ Canale regolamento italiano non configurato")
 
-            # 2. POI invia il REGOLAMENTO INGLESE
-            if self.RULES_CHANNEL_ID != 0:
+            # 2. POI invia il REGOLAMENTO INGLESE (in canale inglese)
+            if self.RULES_CHANNEL_ID != 0 and self.RULES_CHANNEL_ID != self.ITALIAN_RULES_CHANNEL_ID:
                 print("📜 Invio regolamento inglese...")
                 await self.send_english_rules()
                 await asyncio.sleep(3)
             else:
-                print("❌ Canale regolamento inglese non configurato")
+                print("❌ Canale regolamento inglese non configurato o uguale a italiano")
 
             # 3. INFINE invia il MESSAGGIO di VERIFICA
             if self.VERIFY_CHANNEL_ID != 0:
@@ -70,14 +121,14 @@ class VerificationSystem(commands.Cog):
             print(f"❌ ERRORE durante il setup: {e}")
 
     async def send_italian_rules(self):
-        """Invia il regolamento italiano"""
+        """Invia il regolamento italiano nel canale italiano"""
         for guild in self.bot.guilds:
             channel = guild.get_channel(self.ITALIAN_RULES_CHANNEL_ID)
             if channel:
                 try:
-                    # Pulizia messaggi vecchi del bot
-                    print(f"🧹 Pulizia canale italiano: #{channel.name}")
-                    async for message in channel.history(limit=10):
+                    # Pulizia messaggi vecchi del bot SOLO in questo canale
+                    print(f"🧹 Pulizia canale italiano: #{channel.name} (ID: {channel.id})")
+                    async for message in channel.history(limit=20):
                         if message.author == self.bot.user:
                             await message.delete()
                             await asyncio.sleep(0.5)
@@ -123,25 +174,25 @@ Accettando queste regole, confermi di averle lette e accettate.
                     print(f"✅ Regolamento italiano inviato in #{channel.name}")
                     
                 except Exception as e:
-                    print(f"❌ Errore regolamento italiano: {e}")
+                    print(f"❌ Errore regolamento italiano in #{channel.name}: {e}")
 
     async def send_english_rules(self):
-        """Invia il regolamento inglese"""
+        """Invia il regolamento inglese nel canale inglese"""
         for guild in self.bot.guilds:
             channel = guild.get_channel(self.RULES_CHANNEL_ID)
             if channel:
                 try:
                     # Pulizia solo se canale diverso da italiano
                     if self.RULES_CHANNEL_ID != self.ITALIAN_RULES_CHANNEL_ID:
-                        print(f"🧹 Pulizia canale inglese: #{channel.name}")
-                        async for message in channel.history(limit=10):
+                        print(f"🧹 Pulizia canale inglese: #{channel.name} (ID: {channel.id})")
+                        async for message in channel.history(limit=20):
                             if message.author == self.bot.user:
                                 await message.delete()
                                 await asyncio.sleep(0.5)
                     
                     await asyncio.sleep(2)
                     
-                    # REGOLAMENTO INGLESE AGGIORNATO
+                    # REGOLAMENTO INGLESE
                     embed = discord.Embed(
                         title="📜 SERVER RULES - ENGLISH 🇬🇧",
                         color=0x0099ff,
@@ -192,7 +243,7 @@ By accepting these rules, you confirm you have read and accepted them.
                     print(f"✅ Regolamento inglese inviato in #{channel.name}")
                     
                 except Exception as e:
-                    print(f"❌ Errore regolamento inglese: {e}")
+                    print(f"❌ Errore regolamento inglese in #{channel.name}: {e}")
 
     async def send_verification_message(self):
         """Invia il messaggio di verifica"""
@@ -345,17 +396,5 @@ class VerifyButton(discord.ui.Button):
         
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-    async def complete_verification(self, interaction: discord.Interaction, language: str):
-        """Completa la verifica (da implementare)"""
-        # Implementazione della verifica...
-        if language == "ita":
-            message = "✅ Verifica completata! Sezione Italiana attivata. Benvenuto! 🎉"
-        else:
-            message = "✅ Verification completed! English Section activated. Welcome! 🎉"
-        
-        embed = discord.Embed(description=message, color=0x00ff00)
-        await interaction.response.edit_message(embed=embed, view=None)
-
 async def setup(bot):
     await bot.add_cog(VerificationSystem(bot))
-
