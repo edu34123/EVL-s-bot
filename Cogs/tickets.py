@@ -10,14 +10,14 @@ class TicketSystem(commands.Cog):
         self.bot = bot
         
         # Configurazione
-        self.TICKET_CATEGORY_ITA = int(os.getenv('TICKET_CATEGORY_ITA', '1400000000000000000'))
-        self.TICKET_CATEGORY_ENG = int(os.getenv('TICKET_CATEGORY_ENG', '1400000000000000001'))
-        self.TICKET_LOG_CHANNEL = int(os.getenv('TICKET_LOG_CHANNEL', '1400000000000000002'))
+        self.TICKET_CATEGORY_ITA = int(os.getenv('TICKET_CATEGORY_ITA', '1392745580484231260'))
+        self.TICKET_CATEGORY_ENG = int(os.getenv('TICKET_CATEGORY_ENG', '1420638864887775364'))
+        self.TICKET_LOG_CHANNEL = int(os.getenv('TICKET_LOG_CHANNEL', '1392745544941703269'))
         
         # Ruoli staff
-        self.STAFF_ROLE_ID = int(os.getenv('STAFF_ROLE_ID', '1400000000000000003'))
-        self.PARTNERSHIP_ROLE_ID = int(os.getenv('PARTNERSHIP_ROLE_ID', '1400000000000000004'))
-        self.SUPPORT_ROLE_ID = int(os.getenv('SUPPORT_ROLE_ID', '1400000000000000005'))
+        self.STAFF_ROLE_ID = int(os.getenv('STAFF_ROLE_ID', '1394357096295956580'))
+        self.PARTNERSHIP_ROLE_ID = int(os.getenv('PARTNERSHIP_ROLE_ID', '1408162707575803975'))
+        self.SUPPORT_ROLE_ID = int(os.getenv('SUPPORT_ROLE_ID', '1392746082588557383'))
         
         # Ruoli lingua
         self.ITA_ROLE_ID = int(os.getenv('ITA_ROLE_ID', '1402668379533348944'))
