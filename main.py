@@ -45,7 +45,7 @@ class TicketCreationView(discord.ui.View):
         await self.create_ticket_with_language(interaction, "support")
     
     async def create_ticket_with_language(self, interaction: discord.Interaction, ticket_type: str):
-        """Crea ticket determinando automaticamente la lingua"""
+        """Crea ticket determinando automaticamente la lingua - VERSIONE CORRETTA"""
         try:
             # Cerca i cog ticket
             cog_ita = interaction.client.get_cog('TicketSystemITA')
@@ -54,31 +54,36 @@ class TicketCreationView(discord.ui.View):
             print(f"🔍 Cog trovati: ITA={cog_ita is not None}, ENG={cog_eng is not None}")
             
             if not cog_ita and not cog_eng:
-                await interaction.response.send_message("❌ Nessun sistema ticket caricato. Usa /debug_tickets per verificare.", ephemeral=True)
+                await interaction.response.send_message("❌ Nessun sistema ticket caricato.", ephemeral=True)
                 return
             
-            # Determina la lingua in base ai ruoli
-            ita_role_id = 1402668379533348944
-            eng_role_id = 1402668928890568785
+            # Determina la lingua in base ai ruoli - CORREZIONE
+            ita_role_id = 1402668379533348944  # RUOLO ITALIANO
+            eng_role_id = 1402668928890568785  # RUOLO INGLESE
             
-            ita_role = interaction.guild.get_role(ita_role_id)
-            eng_role = interaction.guild.get_role(eng_role_id)
+            # VERIFICA ESPLICITA DEI RUOLI DELL'UTENTE
+            user_has_ita_role = any(role.id == ita_role_id for role in interaction.user.roles)
+            user_has_eng_role = any(role.id == eng_role_id for role in interaction.user.roles)
             
-            user_roles = [role.id for role in interaction.user.roles]
+            print(f"👤 Utente: {interaction.user.display_name}")
+            print(f"🎯 Ruoli lingua: ITA={user_has_ita_role}, ENG={user_has_eng_role}")
+            print(f"🔍 Ruoli utente: {[role.name for role in interaction.user.roles]}")
             
-            # Logica di determinazione lingua
-            if ita_role and ita_role.id in user_roles and cog_ita:
-                print(f"🎯 Creazione ticket ITALIANO per {interaction.user.display_name}")
-                await cog_ita.create_ticket(interaction, ticket_type)
-            elif cog_eng:
-                print(f"🎯 Creazione ticket INGLESE per {interaction.user.display_name}")
-                await cog_eng.create_ticket(interaction, ticket_type)
-            elif cog_ita:  # Fallback su italiano se inglese non disponibile
-                print(f"🎯 Creazione ticket ITALIANO (fallback) per {interaction.user.display_name}")
-                await cog_ita.create_ticket(interaction, ticket_type)
+            # LOGICA CORRETTA: Se ha ruolo italiano → ticket italiano
+            if user_has_ita_role:
+                print("🎯 SCELTA: Ticket ITALIANO")
+                if cog_ita:
+                    await cog_ita.create_ticket(interaction, ticket_type)
+                else:
+                    await interaction.response.send_message("❌ Sistema ticket italiano non disponibile", ephemeral=True)
             else:
-                await interaction.response.send_message("❌ Impossibile creare il ticket. Contatta l'admin.", ephemeral=True)
-                
+                # Default a inglese se non ha ruolo italiano
+                print("🎯 SCELTA: Ticket INGLESE (default)")
+                if cog_eng:
+                    await cog_eng.create_ticket(interaction, ticket_type)
+                else:
+                    await interaction.response.send_message("❌ Sistema ticket inglese non disponibile", ephemeral=True)
+                    
         except Exception as e:
             error_msg = f"❌ Errore creazione ticket: {str(e)}"
             print(error_msg)
