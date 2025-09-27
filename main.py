@@ -20,6 +20,9 @@ VERIFIED_ROLE_ID = int(get_env_var('VERIFIED_ROLE_ID', 1392128530438951084))
 UNVERIFIED_ROLE_ID = int(get_env_var('UNVERIFIED_ROLE_ID', 1392111556954685450))
 PARTNERSHIP_CHANNEL_ID = int(get_env_var('PARTNERSHIP_CHANNEL_ID', 1411451850485403830))
 
+# AGGIUNGI QUESTE VARIABILI PER I TICKET
+TICKET_CHANNEL_ID = int(get_env_var('TICKET_CHANNEL_ID', 1411451850485403830))  # Canale dove inviare i ticket
+
 INVITE_ROLES = {
     1: int(get_env_var('INVITE_ROLE_1_ID', 1392731553221578843)),
     3: int(get_env_var('INVITE_ROLE_3_ID', 1392731553624363058)),
@@ -33,8 +36,8 @@ class MyBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.all()
         intents.message_content = True
-        # Nel metodo __init__ della classe MyBot:
         super().__init__(command_prefix='>', intents=intents, help_command=None)
+        self.ticket_channel_id = TICKET_CHANNEL_ID
 
     async def setup_hook(self):
         # DEBUG: mostra struttura file
@@ -44,7 +47,6 @@ class MyBot(commands.Bot):
             for item in items:
                 print(f"📁 {item}")
                 
-                # Se è una cartella, mostra contenuto
                 if os.path.isdir(item):
                     try:
                         subitems = os.listdir(item)
@@ -56,7 +58,7 @@ class MyBot(commands.Bot):
             print(f"❌ Errore lista file: {e}")
         
         # Prova entrambi i nomi della cartella (Cogs/cogs)
-        cogs_paths = ['./Cogs', './cogs']  # Prova entrambi i nomi
+        cogs_paths = ['./Cogs', './cogs']
         cogs_loaded = False
         
         for cogs_path in cogs_paths:
@@ -65,7 +67,6 @@ class MyBot(commands.Bot):
                 for filename in os.listdir(cogs_path):
                     if filename.endswith('.py') and filename != '__init__.py':
                         try:
-                            # Usa il nome corretto della cartella nell'import
                             cog_name = f"{cogs_path[2:]}.{filename[:-3]}"
                             await self.load_extension(cog_name)
                             print(f"✅ Caricato: {cog_name}")
@@ -76,7 +77,6 @@ class MyBot(commands.Bot):
         
         if not cogs_loaded:
             print("❌ Nessun cog caricato! Provo a caricare manualmente...")
-            # Prova a caricare i cog manualmente
             cog_names = ['fun', 'verification', 'partnership', 'moderation', 'leveling', 'invite_tracker', 'klubs', 'tickets']
             for cog_name in cog_names:
                 try:
@@ -88,12 +88,11 @@ class MyBot(commands.Bot):
         # Inizializza il database
         await self.init_db()
         
-        # Sincronizza i comandi slash CON FORCE
+        # Sincronizza i comandi slash
         try:
             synced = await self.tree.sync()
             print(f"✅ Sincronizzati {len(synced)} comandi slash!")
             
-            # Mostra la lista dei comandi sincronizzati
             for cmd in synced:
                 print(f"   - /{cmd.name}")
         except Exception as e:
@@ -123,6 +122,101 @@ class MyBot(commands.Bot):
         except Exception as e:
             print(f"❌ Errore database: {e}")
 
+    async def setup_ticket_messages(self):
+        """Invia automaticamente i messaggi dei ticket quando il bot si avvia"""
+        print("🔄 Setup automatico messaggi ticket...")
+        
+        for guild in self.guilds:
+            try:
+                channel = guild.get_channel(self.ticket_channel_id)
+                if not channel:
+                    print(f"❌ Canale ticket non trovato nel server {guild.name}")
+                    continue
+                
+                print(f"✅ Trovato canale ticket: #{channel.name} in {guild.name}")
+                
+                # Pulisci i vecchi messaggi del bot
+                try:
+                    async for message in channel.history(limit=20):
+                        if message.author == self.user:
+                            await message.delete()
+                            await asyncio.sleep(0.5)
+                    print(f"🧹 Pulizia completata in #{channel.name}")
+                except Exception as e:
+                    print(f"⚠️ Errore durante la pulizia: {e}")
+                
+                await asyncio.sleep(2)
+                
+                # EMBED ITALIANO
+                embed_ita = discord.Embed(
+                    title="🎫 SISTEMA TICKET - ITALIANO 🇮🇹",
+                    color=0x00ff00,
+                    description="**Apri un ticket per richiedere assistenza o partnership!**"
+                )
+                
+                embed_ita.add_field(
+                    name="📋 Tipi di Ticket Disponibili",
+                    value="**🤝 Partnership** - Per collaborazioni e partnership\n**🛠️ Supporto** - Per assistenza e problemi tecnici",
+                    inline=False
+                )
+                
+                embed_ita.add_field(
+                    name="📜 Regole Ticket",
+                    value="• Non taggare lo staff, verranno automaticamente notificati\n• Il ticket verrà chiuso dopo 24h di inattività\n• Sii chiaro e conciso nella tua richiesta\n• Rispetta lo staff e le sue decisioni",
+                    inline=False
+                )
+                
+                # EMBED INGLESE
+                embed_eng = discord.Embed(
+                    title="🎫 TICKET SYSTEM - ENGLISH 🇬🇧",
+                    color=0x0099ff,
+                    description="**Open a ticket to request assistance or partnership!**"
+                )
+                
+                embed_eng.add_field(
+                    name="📋 Available Ticket Types",
+                    value="**🤝 Partnership** - For collaborations and partnerships\n**🛠️ Support** - For assistance and technical issues",
+                    inline=False
+                )
+                
+                embed_eng.add_field(
+                    name="📜 Ticket Rules",
+                    value="• Don't ping staff, they will be automatically notified\n• Ticket will be closed after 24h of inactivity\n• Be clear and concise in your request\n• Respect staff and their decisions",
+                    inline=False
+                )
+                
+                # Crea la view per i pulsanti
+                class TicketCreationView(discord.ui.View):
+                    def __init__(self):
+                        super().__init__(timeout=None)
+                    
+                    @discord.ui.button(label="🤝 Partnership", style=discord.ButtonStyle.primary, custom_id="auto_ticket_partnership")
+                    async def partnership_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+                        cog = interaction.client.get_cog('TicketSystem')
+                        if cog:
+                            await cog.create_ticket(interaction, "partnership")
+                        else:
+                            await interaction.response.send_message("❌ Sistema ticket non disponibile", ephemeral=True)
+                    
+                    @discord.ui.button(label="🛠️ Supporto", style=discord.ButtonStyle.secondary, custom_id="auto_ticket_support")
+                    async def support_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+                        cog = interaction.client.get_cog('TicketSystem')
+                        if cog:
+                            await cog.create_ticket(interaction, "support")
+                        else:
+                            await interaction.response.send_message("❌ Sistema ticket non disponibile", ephemeral=True)
+                
+                view = TicketCreationView()
+                
+                # Invia i messaggi
+                await channel.send(embed=embed_ita, view=view)
+                await channel.send(embed=embed_eng, view=view)
+                
+                print(f"✅ Messaggi ticket inviati in #{channel.name}")
+                
+            except Exception as e:
+                print(f"❌ Errore durante l'invio dei messaggi ticket in {guild.name}: {e}")
+
 bot = MyBot()
 
 @bot.event
@@ -130,9 +224,12 @@ async def on_ready():
     print(f'✅ {bot.user} è online!')
     print(f'✅ ID Bot: {bot.user.id}')
     
-    # Conta i comandi registrati
     commands_count = len(bot.tree.get_commands())
     print(f'✅ Comandi registrati nel bot: {commands_count}')
+    
+    # Aspetta che tutto sia pronto, poi invia i messaggi ticket
+    await asyncio.sleep(5)
+    await bot.setup_ticket_messages()
     
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="My Community and helping you with /help 👀"))
 
@@ -148,9 +245,18 @@ async def sync(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("❌ Non hai i permessi per questo comando!", ephemeral=True)
 
+# Comando per re-inviare i messaggi ticket
+@bot.tree.command(name="setup_tickets", description="Re-invia i messaggi dei ticket (Admin)")
+async def setup_tickets_cmd(interaction: discord.Interaction):
+    if interaction.user.guild_permissions.administrator:
+        await interaction.response.defer(ephemeral=True)
+        await bot.setup_ticket_messages()
+        await interaction.followup.send("✅ Messaggi ticket re-inviati!", ephemeral=True)
+    else:
+        await interaction.response.send_message("❌ Non hai i permessi per questo comando!", ephemeral=True)
+
 @bot.tree.command(name="help", description="Mostra tutti i comandi disponibili")
 async def help_command(interaction: discord.Interaction):
-    # Ottieni la lista dei comandi
     commands_list = []
     for command in bot.tree.get_commands():
         commands_list.append(f"**/{command.name}** - {command.description}")
@@ -168,4 +274,3 @@ if __name__ == "__main__":
         bot.run(token)
     else:
         print("❌ Token Discord non trovato!")
-
