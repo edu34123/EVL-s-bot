@@ -20,7 +20,7 @@ def get_env_var(name, default=None):
 VERIFIED_ROLE_ID = int(get_env_var('VERIFIED_ROLE_ID', 1392128530438951084))
 UNVERIFIED_ROLE_ID = int(get_env_var('UNVERIFIED_ROLE_ID', 1392111556954685450))
 PARTNERSHIP_CHANNEL_ID = int(get_env_var('PARTNERSHIP_CHANNEL_ID', 1411451850485403830))
-TICKET_CHANNEL_ID = int(get_env_var('TICKET_CHANNEL_ID', 1411451850485403830))  # VERIFICA QUESTO ID!
+TICKET_CHANNEL_ID = int(get_env_var('TICKET_CHANNEL_ID', 1392745580484231260))  # VERIFICA QUESTO ID!
 
 INVITE_ROLES = {
     1: int(get_env_var('INVITE_ROLE_1_ID', 1392731553221578843)),
@@ -335,3 +335,4 @@ if __name__ == "__main__":
         bot.run(token)
     else:
         print("❌ Token Discord non trovato!")
+
