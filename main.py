@@ -17,19 +17,25 @@ def get_env_var(name, default=None):
     return value
 
 # Usa valori di default se le variabili non esistono
-VERIFIED_ROLE_ID = int(get_env_var('VERIFIED_ROLE_ID', 1392128530438951084))
-UNVERIFIED_ROLE_ID = int(get_env_var('UNVERIFIED_ROLE_ID', 1392111556954685450))
-PARTNERSHIP_CHANNEL_ID = int(get_env_var('PARTNERSHIP_CHANNEL_ID', 1411451850485403830))
-TICKET_CHANNEL_ITA_ID = int(get_env_var('TICKET_CHANNEL_ITA_ID', 1392745580484231260))  # Canale italiano
-TICKET_CHANNEL_ENG_ID = int(get_env_var('TICKET_CHANNEL_ENG_ID', 1420638864887775364))  # Canale inglese
+VERIFIED_ROLE_ID = int(get_env_var('VERIFIED_ROLE_ID', '1392128530438951084'))
+UNVERIFIED_ROLE_ID = int(get_env_var('UNVERIFIED_ROLE_ID', '1392111556954685450'))
+PARTNERSHIP_CHANNEL_ID = int(get_env_var('PARTNERSHIP_CHANNEL_ID', '1411451850485403830'))
+TICKET_CHANNEL_ITA_ID = int(get_env_var('TICKET_CHANNEL_ITA_ID', '1392745580484231260'))  # Canale italiano
+TICKET_CHANNEL_ENG_ID = int(get_env_var('TICKET_CHANNEL_ENG_ID', '1420638864887775364'))  # Canale inglese
+
+# VARIABILI PER IL SISTEMA DI WARN (NUOVE)
+WARN_CHANNEL_ID = int(get_env_var('WARN_CHANNEL_ID', '1409889529879330907'))
+WARN_ROLE_1_ID = int(get_env_var('WARN_ROLE_1_ID', '1403679881333706823'))
+WARN_ROLE_2_ID = int(get_env_var('WARN_ROLE_2_ID', '1403679930885345310'))
+WARN_ROLE_3_ID = int(get_env_var('WARN_ROLE_3_ID', '1403679970886291497'))
 
 INVITE_ROLES = {
-    1: int(get_env_var('INVITE_ROLE_1_ID', 1392731553221578843)),
-    3: int(get_env_var('INVITE_ROLE_3_ID', 1392731553624363058)),
-    5: int(get_env_var('INVITE_ROLE_5_ID', 1392731554362425445)),
-    10: int(get_env_var('INVITE_ROLE_10_ID', 1392731555188969613)),
-    50: int(get_env_var('INVITE_ROLE_50_ID', 1392731615632818286)),
-    100: int(get_env_var('INVITE_ROLE_100_ID', 1392731616060772424))
+    1: int(get_env_var('INVITE_ROLE_1_ID', '1392731553221578843')),
+    3: int(get_env_var('INVITE_ROLE_3_ID', '1392731553624363058')),
+    5: int(get_env_var('INVITE_ROLE_5_ID', '1392731554362425445')),
+    10: int(get_env_var('INVITE_ROLE_10_ID', '1392731555188969613')),
+    50: int(get_env_var('INVITE_ROLE_50_ID', '1392731615632818286')),
+    100: int(get_env_var('INVITE_ROLE_100_ID', '1392731616060772424'))
 }
 
 # VIEW PER ITALIANO - SOLO ITALIANO
@@ -175,7 +181,7 @@ class MyBot(commands.Bot):
                 await db.commit()
             print("✅ Database inizializzato!")
         except Exception as e:
-            print(f"❌ Errore database: {e}")
+            print(f"❌ Errose database: {e}")
 
     async def setup_ticket_messages(self):
         """Invia i messaggi dei ticket in canali separati"""
