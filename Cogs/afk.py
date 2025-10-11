@@ -9,6 +9,8 @@ class AFKSystem(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.afk_users = {}  # Cache per utenti AFK
+        self.LEADERBOARD_CHANNEL_ID = 1426606478273286264  # Canale per la leaderboard automatica
+        self.leaderboard_task = None
     
     async def init_db(self):
         """Inizializza la tabella AFK nel database"""
@@ -39,6 +41,110 @@ class AFKSystem(commands.Cog):
                 'start_time': datetime.fromisoformat(start_time),
                 'auto_end': bool(auto_end)
             }
+    
+    async def start_leaderboard_updates(self):
+        """Avvia gli aggiornamenti automatici della leaderboard"""
+        # Avvia il task per gli aggiornamenti periodici
+        self.leaderboard_task = self.bot.loop.create_task(self.auto_leaderboard_update())
+    
+    async def auto_leaderboard_update(self):
+        """Aggiorna automaticamente la leaderboard ogni 24 ore"""
+        await self.bot.wait_until_ready()
+        
+        while not self.bot.is_closed():
+            try:
+                # Aspetta fino alle 20:00 (8 PM) del giorno successivo
+                now = datetime.now()
+                target_time = now.replace(hour=20, minute=0, second=0, microsecond=0)
+                
+                if now >= target_time:
+                    target_time += timedelta(days=1)
+                
+                wait_seconds = (target_time - now).total_seconds()
+                print(f"⏰ Prossimo aggiornamento leaderboard AFK tra {wait_seconds/3600:.1f} ore")
+                
+                await asyncio.sleep(wait_seconds)
+                
+                # Invia la leaderboard
+                await self.send_auto_leaderboard()
+                
+                # Aspetta 24 ore prima del prossimo aggiornamento
+                await asyncio.sleep(86400)  # 24 ore
+                
+            except Exception as e:
+                print(f"❌ Errore nell'aggiornamento automatico leaderboard: {e}")
+                await asyncio.sleep(3600)  # Aspetta 1 ora in caso di errore
+    
+    async def send_auto_leaderboard(self):
+        """Invia la leaderboard automatica nel canale designato"""
+        try:
+            channel = self.bot.get_channel(self.LEADERBOARD_CHANNEL_ID)
+            if not channel:
+                print(f"❌ Canale leaderboard {self.LEADERBOARD_CHANNEL_ID} non trovato!")
+                return
+            
+            # Recupera i dati della leaderboard
+            async with aiosqlite.connect('database.db') as db:
+                async with db.execute(
+                    'SELECT user_id, total_afk_time FROM afk_users ORDER BY total_afk_time DESC LIMIT 10'
+                ) as cursor:
+                    rows = await cursor.fetchall()
+            
+            if not rows:
+                # Nessun dato AFK, invia un messaggio comunque
+                embed = discord.Embed(
+                    title="🏆 Classifica Tempi AFK - Giornaliera",
+                    color=0xffd700,
+                    description="*Nessun dato AFK disponibile al momento*"
+                )
+                embed.set_footer(text="Aggiornamento automatico giornaliero • Usa /afk per impostare il tuo stato AFK")
+                await channel.send(embed=embed)
+                return
+            
+            embed = discord.Embed(
+                title="🏆 Classifica Tempi AFK - Giornaliera",
+                color=0xffd700,
+                description="**Utenti con più tempo totale in AFK**\n*Aggiornamento automatico ogni 24 ore*"
+            )
+            
+            leaderboard_text = ""
+            for i, (user_id, total_seconds) in enumerate(rows, 1):
+                user = self.bot.get_user(user_id)
+                username = user.mention if user else f"👤 Utente Sconosciuto"
+                
+                medal = ""
+                if i == 1: medal = "🥇 "
+                elif i == 2: medal = "🥈 "
+                elif i == 3: medal = "🥉 "
+                else: medal = "🔹 "
+                
+                time_str = self.format_total_time(total_seconds)
+                leaderboard_text += f"{medal} **{i}.** {username} - `{time_str}`\n"
+            
+            embed.add_field(
+                name="Top 10 AFK", 
+                value=leaderboard_text or "Nessun dato disponibile", 
+                inline=False
+            )
+            
+            # Aggiungi statistiche aggiuntive
+            total_users = len(rows)
+            total_time_all = sum(row[1] for row in rows)
+            avg_time = total_time_all / total_users if total_users > 0 else 0
+            
+            embed.add_field(
+                name="📊 Statistiche",
+                value=f"• **Utenti totali:** {total_users}\n• **Tempo medio:** `{self.format_total_time(int(avg_time))}`\n• **Tempo totale:** `{self.format_total_time(total_time_all)}`",
+                inline=False
+            )
+            
+            embed.set_footer(text="Aggiornamento automatico giornaliero • Usa /afk per impostare il tuo stato AFK")
+            
+            await channel.send(embed=embed)
+            print("✅ Leaderboard AFK automatica inviata!")
+            
+        except Exception as e:
+            print(f"❌ Errore nell'invio della leaderboard automatica: {e}")
     
     @app_commands.command(name="afk", description="Gestisci il tuo stato AFK")
     @app_commands.describe(
@@ -193,18 +299,31 @@ class AFKSystem(commands.Cog):
         leaderboard_text = ""
         for i, (user_id, total_seconds) in enumerate(rows, 1):
             user = self.bot.get_user(user_id)
-            username = user.mention if user else f"Utente Sconosciuto ({user_id})"
+            username = user.mention if user else f"👤 Utente Sconosciuto"
             
             medal = ""
             if i == 1: medal = "🥇 "
             elif i == 2: medal = "🥈 "
             elif i == 3: medal = "🥉 "
+            else: medal = "🔹 "
             
             time_str = self.format_total_time(total_seconds)
-            leaderboard_text += f"{medal}**{i}.** {username} - `{time_str}`\n"
+            leaderboard_text += f"{medal} **{i}.** {username} - `{time_str}`\n"
         
         embed.add_field(name="Top 10 AFK", value=leaderboard_text, inline=False)
-        embed.set_footer(text="Tempo totale accumulato in stato AFK")
+        
+        # Aggiungi statistiche
+        total_users = len(rows)
+        total_time_all = sum(row[1] for row in rows)
+        avg_time = total_time_all / total_users if total_users > 0 else 0
+        
+        embed.add_field(
+            name="📊 Statistiche",
+            value=f"• **Utenti totali:** {total_users}\n• **Tempo medio:** `{self.format_total_time(int(avg_time))}`\n• **Tempo totale:** `{self.format_total_time(total_time_all)}`",
+            inline=False
+        )
+        
+        embed.set_footer(text="Aggiornamento automatico giornaliero alle 20:00")
         
         await interaction.response.send_message(embed=embed)
     
@@ -307,7 +426,14 @@ class AFKSystem(commands.Cog):
         """Carica i dati AFK all'avvio del cog"""
         await self.init_db()
         await self.load_afk_users()
-        print("✅ Sistema AFK caricato!")
+        await self.start_leaderboard_updates()
+        print("✅ Sistema AFK caricato! Leaderboard automatica attivata.")
+    
+    async def cog_unload(self):
+        """Ferma i task quando il cog viene scaricato"""
+        if self.leaderboard_task:
+            self.leaderboard_task.cancel()
+        print("❌ Sistema AFK scaricato.")
 
 async def setup(bot):
     await bot.add_cog(AFKSystem(bot))
