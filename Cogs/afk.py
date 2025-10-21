@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 class AFKSystem(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.afk_sessions = {}  # Cache per sessioni AFK attive
     
     async def init_db(self):
         """Inizializza le tabelle AFK nel database"""
@@ -50,34 +49,14 @@ class AFKSystem(commands.Cog):
                     PRIMARY KEY (user_id, guild_id)
                 )
             ''')
-            
-            # Aggiungi colonne mancanti se non esistono
-            columns_to_add = [
-                'message_count INTEGER DEFAULT 0',
-                'total_afk_time INTEGER DEFAULT 0', 
-                'total_message_count INTEGER DEFAULT 0',
-                'total_sessions_count INTEGER DEFAULT 0',
-                'last_reset TIMESTAMP'
-            ]
-            
-            for column_def in columns_to_add:
-                try:
-                    column_name = column_def.split(' ')[0]
-                    if 'afk_sessions' in column_def:
-                        await db.execute(f'ALTER TABLE afk_sessions ADD COLUMN {column_def}')
-                    elif 'afk_total_stats' in column_def:
-                        await db.execute(f'ALTER TABLE afk_total_stats ADD COLUMN {column_def}')
-                    print(f"✅ Aggiunta colonna {column_name}")
-                except aiosqlite.OperationalError:
-                    pass  # La colonna esiste già
-                
             await db.commit()
     
     @commands.Cog.listener()
     async def on_ready(self):
         """Avvia i task quando il bot è pronto"""
         await self.init_db()
-        self.reset_daily_stats.start()
+        if not self.reset_daily_stats.is_running():
+            self.reset_daily_stats.start()
         print("✅ Sistema AFK pronto!")
     
     @tasks.loop(time=datetime.time(hour=0, minute=0, second=0))  # Mezzanotte
