@@ -135,39 +135,57 @@ class VerificationSystem(commands.Cog):
                     
                     await asyncio.sleep(2)
                     
-                    # REGOLAMENTO ITALIANO
+                    # REGOLAMENTO ITALIANO AGGIORNATO
                     embed = discord.Embed(
-                        title="📜 REGOLAMENTO SERVER - ITALIANO 🇮🇹",
+                        title="📜 REGOLAMENTO DEL SERVER - ITALIANO 🇮🇹",
                         color=0x00ff00,
-                        description="**Benvenuto nel server! Leggi attentamente il regolamento prima di partecipare.**"
+                        description="**Benvenuti sul server! Si prega di leggere attentamente le regole prima di partecipare.**"
                     )
                     
                     rules_text = """
-**1. RISPETTO RECIPROCO**
-• Sii rispettoso verso tutti i membri
-• No insulti, discriminazioni o hate speech
-• Mantieni un linguaggio educato
+**1. RISPETTO E COMPORTAMENTO**
 
-**2. CONTENUTI APPROPRIATI**
-• No spam o flood di messaggi
-• No contenuti NSFW/18+
-• No condivisione di informazioni personali
+• Non essere nocivo per gli altri membri!
+• Niente insulti, discriminazioni o incitamenti all'odio
+• Rispetta lo staff e le sue decisioni
 
-**3. CANALI APPROPRIATI**
-• Usa i canali per lo scopo previsto
-• No off-topic nei canali dedicati
-• Segui le indicazioni dello staff
+**2. CONTENUTI VIETATI**
+
+• Vietato ai minori di 18 anni!
+• Nessun contenuto sanguinolento!
+• Niente insulti o linguaggio offensivo!
+• Niente spam o inondazioni di messaggi!
+
+**3. REGOLE PER PING E MENTION**
+
+• Non inviare ping agli amministratori!
+• Solo le persone con ruoli speciali possono inviare ping allo staff
+• Niente ping fantasma
+
+**4. SICUREZZA E PRIVACY**
+
+• Non condividere informazioni personali!
+• Condividi informazioni personali solo nel canale di presentazione
+• Niente immagini o nomi offensivi del profilo!
+• Nessuna imitazione di altri utenti!
+
+**5. REQUISITI DI ETÀ E LINGUA**
+
+• Vietato l'accesso agli utenti di età inferiore ai 13 anni!
+• Solo inglese e italiano, per favore!
+• Rispetta i Termini di servizio di Discord!
 
 **⛔ SANZIONI**
-Il mancato rispetto delle regole comporterà:
-• 🟡 Avvertimento
-• 🔴 Mute temporaneo  
-• 🔴 Ban permanente per recidiva
 
-Accettando queste regole, confermi di averle lette e accettate.
+Il mancato rispetto di queste regole comporterà:
+• 🟡 Avvertimento
+• 🔴 Disattivazione temporanea
+• 🔴 Ban permanente per recidive
+
+**Accettando queste regole, confermi di averle lette e accettate.**
 """
                     
-                    embed.add_field(name="Regolamento Completo", value=rules_text, inline=False)
+                    embed.add_field(name="Regole complete del server", value=rules_text, inline=False)
                     embed.set_footer(text="Regolamento Server Italiano")
                     
                     await channel.send(embed=embed)
