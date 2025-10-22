@@ -8,9 +8,9 @@ class VerificationSystem(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         
-        # Configurazione - IMPORTANTE: usa ID DIVERSI per i due canali!
+        # Configurazione
         self.RULES_CHANNEL_ID = int(os.getenv('RULES_CHANNEL_ID', '1392062840097210478'))  # Canale regole inglese
-        self.ITALIAN_RULES_CHANNEL_ID = int(os.getenv('ITALIAN_RULES_CHANNEL_ID', '1392062838197059644'))  # Canale regole italiano (DIVERSO!)
+        self.ITALIAN_RULES_CHANNEL_ID = int(os.getenv('ITALIAN_RULES_CHANNEL_ID', '1392062838197059644'))  # Canale regole italiano
         self.VERIFY_CHANNEL_ID = int(os.getenv('VERIFY_CHANNEL_ID', '1392062838197059644'))  # Canale verifica
         
         # Ruoli
@@ -18,101 +18,53 @@ class VerificationSystem(commands.Cog):
         self.VERIFIED_ROLE_ID = int(os.getenv('VERIFIED_ROLE_ID', '1392128530438951084'))
         self.ITA_ROLE_ID = int(os.getenv('ITA_ROLE_ID', '1402668379533348944'))
         self.ENG_ROLE_ID = int(os.getenv('ENG_ROLE_ID', '1402668928890568785'))
-        self.FAN_ROLE_ID = int(os.getenv('FAN_ROLE_ID', '1392128530438951084'))
         
         self.verification_setup_done = False
-
-    async def complete_verification(self, interaction: discord.Interaction, language: str):
-        """Completa la verifica e assegna i ruoli"""
-        try:
-            guild = interaction.guild
-            member = interaction.user
-            
-            # Rimuovi ruolo non verificato e aggiungi ruolo verificato
-            unverified_role = guild.get_role(self.UNVERIFIED_ROLE_ID)
-            verified_role = guild.get_role(self.VERIFIED_ROLE_ID)
-            
-            if unverified_role and unverified_role in member.roles:
-                await member.remove_roles(unverified_role)
-            
-            if verified_role and verified_role not in member.roles:
-                await member.add_roles(verified_role)
-            
-            # Assegna ruolo lingua
-            if language == "ita":
-                ita_role = guild.get_role(self.ITA_ROLE_ID)
-                eng_role = guild.get_role(self.ENG_ROLE_ID)
-                
-                if ita_role and ita_role not in member.roles:
-                    await member.add_roles(ita_role)
-                if eng_role and eng_role in member.roles:
-                    await member.remove_roles(eng_role)
-                
-                message = "✅ Verifica completata! Sezione Italiana attivata. Benvenuto! 🎉"
-            else:
-                eng_role = guild.get_role(self.ENG_ROLE_ID)
-                ita_role = guild.get_role(self.ITA_ROLE_ID)
-                
-                if eng_role and eng_role not in member.roles:
-                    await member.add_roles(eng_role)
-                if ita_role and ita_role in member.roles:
-                    await member.remove_roles(ita_role)
-                
-                message = "✅ Verification completed! English Section activated. Welcome! 🎉"
-            
-            embed = discord.Embed(description=message, color=0x00ff00)
-            await interaction.response.edit_message(embed=embed, view=None)
-            
-            print(f"✅ Verifica completata per {member.display_name} ({language})")
-            
-        except Exception as e:
-            error_embed = discord.Embed(
-                description="❌ Errore durante la verifica. Contatta lo staff.",
-                color=0xff0000
-            )
-            await interaction.response.edit_message(embed=error_embed, view=None)
-            print(f"❌ Errore verifica per {interaction.user.display_name}: {e}")
+        print(f"🔧 VerificationSystem inizializzato - Canale Italiano: {self.ITALIAN_RULES_CHANNEL_ID}")
 
     @commands.Cog.listener()
     async def on_ready(self):
         """Avvia automaticamente il setup quando il bot è pronto"""
-        print("✅ Sistema di Verifica caricato!")
+        print("✅ Sistema di Verifica ON_READY attivato!")
         
         # Aspetta che il bot sia completamente pronto
-        await asyncio.sleep(5)
+        await asyncio.sleep(10)
         
         # Esegui il setup solo se non è già stato fatto
         if not self.verification_setup_done:
+            print("🔄 Avvio setup verifica...")
             await self.setup_verification_system()
+        else:
+            print("ℹ️ Setup verifica già completato precedentemente")
 
     async def setup_verification_system(self):
         """Setup completo del sistema di verifica"""
         print("🔄 AVVIO SETUP AUTOMATICO DEL SISTEMA DI VERIFICA...")
         
         try:
-            # 1. PRIMA invia il REGOLAMENTO ITALIANO (in canale italiano)
+            # 1. PRIMA invia il REGOLAMENTO ITALIANO
+            print(f"📜 Tentativo invio regolamento italiano in canale: {self.ITALIAN_RULES_CHANNEL_ID}")
             if self.ITALIAN_RULES_CHANNEL_ID != 0:
-                print("📜 Invio regolamento italiano...")
                 await self.send_italian_rules()
                 await asyncio.sleep(3)
             else:
-                print("❌ Canale regolamento italiano non configurato")
+                print("❌ Canale regolamento italiano non configurato (ID: 0)")
 
-            # 2. POI invia il REGOLAMENTO INGLESE (in canale inglese)
+            # 2. POI invia il REGOLAMENTO INGLESE
+            print(f"📜 Tentativo invio regolamento inglese in canale: {self.RULES_CHANNEL_ID}")
             if self.RULES_CHANNEL_ID != 0 and self.RULES_CHANNEL_ID != self.ITALIAN_RULES_CHANNEL_ID:
-                print("📜 Invio regolamento inglese...")
                 await self.send_english_rules()
                 await asyncio.sleep(3)
             else:
                 print("❌ Canale regolamento inglese non configurato o uguale a italiano")
 
             # 3. INFINE invia il MESSAGGIO di VERIFICA
+            print(f"✅ Tentativo invio verifica in canale: {self.VERIFY_CHANNEL_ID}")
             if self.VERIFY_CHANNEL_ID != 0:
-                print("✅ Invio messaggio di verifica...")
                 await self.send_verification_message()
                 await asyncio.sleep(2)
             else:
-                print("❌ Canale verifica non configurato")
+                print("❌ Canale verifica non configurato (ID: 0)")
 
             self.verification_setup_done = True
             print("🎉 SETUP COMPLETATO! Regolamento e verifica inviati correttamente!")
@@ -122,17 +74,25 @@ class VerificationSystem(commands.Cog):
 
     async def send_italian_rules(self):
         """Invia il regolamento italiano nel canale italiano"""
+        print(f"🔍 Ricerca canale italiano ID: {self.ITALIAN_RULES_CHANNEL_ID}")
+        
         for guild in self.bot.guilds:
+            print(f"🔍 Controllo server: {guild.name} (ID: {guild.id})")
             channel = guild.get_channel(self.ITALIAN_RULES_CHANNEL_ID)
+            
             if channel:
+                print(f"✅ Canale italiano trovato: #{channel.name} (ID: {channel.id})")
                 try:
-                    # Pulizia messaggi vecchi del bot SOLO in questo canale
-                    print(f"🧹 Pulizia canale italiano: #{channel.name} (ID: {channel.id})")
-                    async for message in channel.history(limit=20):
+                    # Pulizia messaggi vecchi del bot
+                    print(f"🧹 Pulizia canale italiano: #{channel.name}")
+                    deleted_count = 0
+                    async for message in channel.history(limit=30):
                         if message.author == self.bot.user:
                             await message.delete()
+                            deleted_count += 1
                             await asyncio.sleep(0.5)
                     
+                    print(f"🗑️ Cancellati {deleted_count} messaggi vecchi")
                     await asyncio.sleep(2)
                     
                     # REGOLAMENTO ITALIANO AGGIORNATO
@@ -189,10 +149,16 @@ Il mancato rispetto di queste regole comporterà:
                     embed.set_footer(text="Regolamento Server Italiano")
                     
                     await channel.send(embed=embed)
-                    print(f"✅ Regolamento italiano inviato in #{channel.name}")
+                    print(f"✅ REGOLAMENTO ITALIANO INVIATO CON SUCCESSO in #{channel.name}!")
                     
+                except discord.Forbidden:
+                    print(f"❌ Permessi insufficienti per inviare messaggi in #{channel.name}")
+                except discord.HTTPException as e:
+                    print(f"❌ Errore HTTP durante l'invio in #{channel.name}: {e}")
                 except Exception as e:
-                    print(f"❌ Errore regolamento italiano in #{channel.name}: {e}")
+                    print(f"❌ Errore imprevisto in #{channel.name}: {e}")
+            else:
+                print(f"❌ Canale italiano NON TROVATO nel server {guild.name}! ID: {self.ITALIAN_RULES_CHANNEL_ID}")
 
     async def send_english_rules(self):
         """Invia il regolamento inglese nel canale inglese"""
@@ -202,7 +168,7 @@ Il mancato rispetto di queste regole comporterà:
                 try:
                     # Pulizia solo se canale diverso da italiano
                     if self.RULES_CHANNEL_ID != self.ITALIAN_RULES_CHANNEL_ID:
-                        print(f"🧹 Pulizia canale inglese: #{channel.name} (ID: {channel.id})")
+                        print(f"🧹 Pulizia canale inglese: #{channel.name}")
                         async for message in channel.history(limit=20):
                             if message.author == self.bot.user:
                                 await message.delete()
@@ -352,10 +318,48 @@ By accepting these rules, you confirm you have read and accepted them.
         """Comando admin per re-inviare i messaggi"""
         await interaction.response.defer(ephemeral=True)
         
+        print(f"🔄 Comando setup_verify eseguito da {interaction.user.display_name}")
         self.verification_setup_done = False
         await self.setup_verification_system()
         
         await interaction.followup.send("✅ Regolamento e verifica re-inviati!", ephemeral=True)
+
+    # COMANDO DI DEBUG
+    @app_commands.command(name="debug_verify", description="Debug sistema verifica (Admin)")
+    @app_commands.default_permissions(administrator=True)
+    async def debug_verify(self, interaction: discord.Interaction):
+        """Comando debug per verificare lo stato del sistema"""
+        embed = discord.Embed(title="🔍 DEBUG SISTEMA VERIFICA", color=0x0099ff)
+        
+        # Informazioni canali
+        embed.add_field(
+            name="📊 CONFIGURAZIONE CANALI",
+            value=(
+                f"**Canale Regole ITA:** `{self.ITALIAN_RULES_CHANNEL_ID}`\n"
+                f"**Canale Regole ENG:** `{self.RULES_CHANNEL_ID}`\n"
+                f"**Canale Verifica:** `{self.VERIFY_CHANNEL_ID}`\n"
+                f"**Setup Completato:** `{self.verification_setup_done}`"
+            ),
+            inline=False
+        )
+        
+        # Verifica canali nel server
+        guild = interaction.guild
+        ita_channel = guild.get_channel(self.ITALIAN_RULES_CHANNEL_ID)
+        eng_channel = guild.get_channel(self.RULES_CHANNEL_ID)
+        verify_channel = guild.get_channel(self.VERIFY_CHANNEL_ID)
+        
+        embed.add_field(
+            name="🔍 STATO CANALI NEL SERVER",
+            value=(
+                f"**ITA Channel:** {ita_channel.mention if ita_channel else '❌ NON TROVATO'}\n"
+                f"**ENG Channel:** {eng_channel.mention if eng_channel else '❌ NON TROVATO'}\n"
+                f"**Verify Channel:** {verify_channel.mention if verify_channel else '❌ NON TROVATO'}"
+            ),
+            inline=False
+        )
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 class VerifyButton(discord.ui.Button):
     def __init__(self):
@@ -416,3 +420,4 @@ class VerifyButton(discord.ui.Button):
 
 async def setup(bot):
     await bot.add_cog(VerificationSystem(bot))
+    print("✅ Cog VerificationSystem caricato!")
